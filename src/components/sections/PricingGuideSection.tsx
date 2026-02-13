@@ -19,8 +19,11 @@ interface PricingGuideSectionProps {
 }
 
 export function PricingGuideSection({ content, className }: PricingGuideSectionProps) {
+  const items = Array.isArray(content.items) ? content.items : []
+  if (items.length === 0) return null
+
   function fmt(cents: number) {
-    return `\$${(cents / 100).toFixed(0)}`
+    return "$" + (Number(cents) / 100).toFixed(0)
   }
 
   return (
@@ -39,7 +42,7 @@ export function PricingGuideSection({ content, className }: PricingGuideSectionP
             </tr>
           </thead>
           <tbody>
-            {content.items.map((item, i) => (
+            {items.map((item, i) => (
               <tr key={i} className="border-b border-outline-variant/30 last:border-0">
                 <td className="py-3 pr-4 text-on-surface">
                   {item.name}

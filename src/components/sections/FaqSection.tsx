@@ -20,6 +20,8 @@ interface FaqSectionProps {
 
 export function FaqSection({ content, className }: FaqSectionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const items = Array.isArray(content.items) ? content.items : []
+  if (items.length === 0) return null
 
   return (
     <div className={cn("rounded-2xl border border-outline-variant/50 bg-white p-6 md:p-8", className)}>
@@ -29,7 +31,7 @@ export function FaqSection({ content, className }: FaqSectionProps) {
         </h2>
       )}
       <div className="divide-y divide-outline-variant/50">
-        {content.items.map((item, i) => (
+        {items.map((item, i) => (
           <div key={i} className="py-4 first:pt-0 last:pb-0">
             <button
               onClick={() => setOpenIndex(openIndex === i ? null : i)}

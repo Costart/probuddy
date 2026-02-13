@@ -11,6 +11,9 @@ interface ContentSectionProps {
 }
 
 export function ContentSection({ content, className }: ContentSectionProps) {
+  const text = content.text || ""
+  if (!text) return null
+
   return (
     <div className={cn("rounded-2xl border border-outline-variant/50 bg-white p-6 md:p-8", className)}>
       {content.title && (
@@ -19,7 +22,7 @@ export function ContentSection({ content, className }: ContentSectionProps) {
         </h2>
       )}
       <div className="prose prose-sm max-w-none text-on-surface-variant leading-relaxed whitespace-pre-line">
-        {content.text}
+        {text}
       </div>
     </div>
   )
