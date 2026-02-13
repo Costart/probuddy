@@ -5,6 +5,7 @@ import { getPageSections } from "@/lib/db/queries/sections"
 import { getGeoData } from "@/lib/geo"
 import { FindAProForm } from "@/components/FindAProForm"
 import { Card, CardContent } from "@/components/ui/Card"
+import { SectionRenderer } from "@/components/sections/SectionRenderer"
 import type { Metadata } from "next"
 
 interface Props {
@@ -88,24 +89,8 @@ export default async function CategoryPage({ params }: Props) {
               </div>
             )}
 
-            {/* Page Sections placeholder */}
-            {sections.map((section) => (
-              <div key={section.id} className="rounded-2xl border border-outline-variant/50 bg-white p-6">
-                <p className="text-xs text-outline uppercase tracking-wider mb-2">{section.sectionType}</p>
-                {section.content && (
-                  <div className="text-sm text-on-surface-variant">
-                    {(() => {
-                      try {
-                        const parsed = JSON.parse(section.content)
-                        return parsed.title || parsed.text || JSON.stringify(parsed).slice(0, 200)
-                      } catch {
-                        return section.content.slice(0, 200)
-                      }
-                    })()}
-                  </div>
-                )}
-              </div>
-            ))}
+            {/* Page Sections */}
+            <SectionRenderer sections={sections} />
           </div>
 
           {/* Sidebar with Form */}

@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid"
 import { getDb } from "@/lib/db"
-import { categories, subServices } from "@/lib/db/schema"
+import { categories, subServices, pageSections } from "@/lib/db/schema"
 
 const SEED_DATA = [
   {
@@ -73,8 +73,130 @@ const SEED_DATA = [
   },
 ]
 
+function makeCategorySections(categoryId: string, cat: typeof SEED_DATA[0]) {
+  return [
+    {
+      id: nanoid(),
+      pageType: "category",
+      pageId: categoryId,
+      sectionType: "content",
+      content: JSON.stringify({
+        title: `About ${cat.name} Services`,
+        text: `Finding a reliable ${cat.name.toLowerCase()} can be stressful. At FindaPro, we connect you with vetted, licensed professionals who deliver quality work at fair prices.
+
+Whether it\'s a small repair or a major project, our network of ${cat.name.toLowerCase()}s are ready to help. Every pro in our network is background-checked, insured, and rated by real customers.`,
+      }),
+      sortOrder: 0,
+    },
+    {
+      id: nanoid(),
+      pageType: "category",
+      pageId: categoryId,
+      sectionType: "faq",
+      content: JSON.stringify({
+        title: `Common ${cat.name} Questions`,
+        items: [
+          { question: `How much does a ${cat.name.toLowerCase()} cost?`, answer: `Costs vary depending on the job. Minor repairs typically range from 5-00, while larger projects can cost ,000 or more. Get a free quote to get an accurate estimate for your specific needs.` },
+          { question: "How do I know if a pro is qualified?", answer: "All professionals in our network are licensed, insured, and background-checked. We also verify customer reviews and ratings to ensure quality work." },
+          { question: "How quickly can I get someone out?", answer: "Many of our pros offer same-day or next-day service for urgent issues. For scheduled work, you can typically book within a few days." },
+          { question: "What if I\'m not satisfied with the work?", answer: "We stand behind the quality of our pros. If you\'re not satisfied, contact us and we\'ll work to make it right, including sending another pro if needed." },
+        ],
+      }),
+      sortOrder: 1,
+    },
+    {
+      id: nanoid(),
+      pageType: "category",
+      pageId: categoryId,
+      sectionType: "pricing",
+      content: JSON.stringify({
+        title: `${cat.name} Pricing Guide`,
+        items: cat.subServices.map((s) => ({
+          name: s.name,
+          priceLow: s.priceLow,
+          priceHigh: s.priceHigh,
+          note: s.duration,
+        })),
+        disclaimer: "Prices are estimates and may vary based on location, complexity, and materials. Get a free quote for an accurate price.",
+      }),
+      sortOrder: 2,
+    },
+    {
+      id: nanoid(),
+      pageType: "category",
+      pageId: categoryId,
+      sectionType: "tips",
+      content: JSON.stringify({
+        title: `Tips for Hiring a ${cat.name}`,
+        tips: [
+          "Always get at least 2-3 quotes before committing to a pro.",
+          "Ask for references and check online reviews from past customers.",
+          "Verify that the pro is licensed and insured for your area.",
+          "Get a written estimate that includes materials, labor, and timeline.",
+          "Don\'t always go with the cheapest option — quality and reliability matter.",
+        ],
+      }),
+      sortOrder: 3,
+    },
+    {
+      id: nanoid(),
+      pageType: "category",
+      pageId: categoryId,
+      sectionType: "questions",
+      content: JSON.stringify({
+        title: `Questions to Ask Your ${cat.name}`,
+        questions: [
+          "Are you licensed and insured?",
+          "How long have you been doing this type of work?",
+          "Can you provide references from recent jobs?",
+          "What is included in your estimate?",
+          "What is your warranty or guarantee policy?",
+          "How long will the project take?",
+          "Will you handle permits if needed?",
+        ],
+      }),
+      sortOrder: 4,
+    },
+  ]
+}
+
+function makeSubServiceSections(subId: string, sub: typeof SEED_DATA[0]["subServices"][0], catName: string) {
+  return [
+    {
+      id: nanoid(),
+      pageType: "sub_service",
+      pageId: subId,
+      sectionType: "content",
+      content: JSON.stringify({
+        title: `What to Expect with ${sub.name}`,
+        text: `${sub.description}
+
+Our vetted ${catName.toLowerCase()}s will assess your needs, provide a clear estimate, and complete the work to the highest standards. Most ${sub.name.toLowerCase()} jobs take ${sub.duration} to complete.`,
+      }),
+      sortOrder: 0,
+    },
+    {
+      id: nanoid(),
+      pageType: "sub_service",
+      pageId: subId,
+      sectionType: "tips",
+      content: JSON.stringify({
+        title: `${sub.name} Tips`,
+        tips: [
+          `Get a detailed written quote before work begins on your ${sub.name.toLowerCase()} project.`,
+          "Ask about warranties on both parts and labor.",
+          "Clear the work area before the pro arrives to save time and money.",
+          "Take photos of the area before work begins for your records.",
+        ],
+      }),
+      sortOrder: 1,
+    },
+  ]
+}
+
 export async function seedDatabase() {
   const db = getDb()
+  let sectionCount = 0
 
   for (const cat of SEED_DATA) {
     const categoryId = nanoid()
@@ -87,9 +209,17 @@ export async function seedDatabase() {
       isPublished: true,
     })
 
+    // Add sections for the category page
+    const catSections = makeCategorySections(categoryId, cat)
+    for (const section of catSections) {
+      await db.insert(pageSections).values(section)
+      sectionCount++
+    }
+
     for (const sub of cat.subServices) {
+      const subId = nanoid()
       await db.insert(subServices).values({
-        id: nanoid(),
+        id: subId,
         categoryId,
         slug: sub.slug,
         name: sub.name,
@@ -100,8 +230,19 @@ export async function seedDatabase() {
         sortOrder: cat.subServices.indexOf(sub),
         isPublished: true,
       })
+
+      // Add sections for each sub-service page
+      const subSections = makeSubServiceSections(subId, sub, cat.name)
+      for (const section of subSections) {
+        await db.insert(pageSections).values(section)
+        sectionCount++
+      }
     }
   }
 
-  return { categories: SEED_DATA.length, subServices: SEED_DATA.reduce((acc, cat) => acc + cat.subServices.length, 0) }
+  return {
+    categories: SEED_DATA.length,
+    subServices: SEED_DATA.reduce((acc, cat) => acc + cat.subServices.length, 0),
+    sections: sectionCount,
+  }
 }

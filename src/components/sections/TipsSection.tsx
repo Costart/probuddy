@@ -1,0 +1,33 @@
+import { cn } from "@/lib/utils"
+
+interface TipsContent {
+  title?: string
+  tips: string[]
+}
+
+interface TipsSectionProps {
+  content: TipsContent
+  className?: string
+}
+
+export function TipsSection({ content, className }: TipsSectionProps) {
+  return (
+    <div className={cn("rounded-2xl border border-outline-variant/50 bg-white p-6 md:p-8", className)}>
+      {content.title && (
+        <h2 className="font-display text-2xl font-bold text-on-surface mb-6">
+          {content.title}
+        </h2>
+      )}
+      <ol className="space-y-4">
+        {content.tips.map((tip, i) => (
+          <li key={i} className="flex gap-4">
+            <span className="flex-shrink-0 w-8 h-8 rounded-full bg-accent/10 text-accent font-display font-bold text-sm flex items-center justify-center">
+              {i + 1}
+            </span>
+            <p className="text-sm text-on-surface-variant leading-relaxed pt-1">{tip}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
