@@ -1,0 +1,69 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "find-a-pro",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // ---------- D1 database ----------
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "find-a-pro-db",
+      "database_id": "TODO-replace-with-your-database-id",
+      "migrations_dir": "drizzle"
+    }
+  ],
+
+  // ---------- R2 storage ----------
+  // Uncomment to add object storage (images, files, etc.)
+  // Create the bucket first: npx wrangler r2 bucket create my-app-uploads
+  // "r2_buckets": [
+  //   {
+  //     "binding": "BUCKET",
+  //     "bucket_name": "my-app-uploads"
+  //   }
+  // ],
+
+  // ---------- Environment variables ----------
+  // Non-secret values go here. Secrets (API keys, AUTH_SECRET) should be
+  // set via: echo "value" | npx wrangler secret put SECRET_NAME
+  "vars": {
+    // "AUTH_URL": "https://my-app.your-domain.com"
+  },
+
+  // ---------- Observability ----------
+  // Free logs and traces in the Cloudflare dashboard
+  "observability": {
+    "enabled": true
+  }
+
+  // ---------- Cron triggers ----------
+  // Uncomment for scheduled tasks (cleanup, notifications, etc.):
+  // "triggers": {
+  //   "crons": ["0 0 * * *"]
+  // }
+
+  // ---------- Staging environment ----------
+  // Uncomment for a separate staging deployment with isolated bindings:
+  // "env": {
+  //   "staging": {
+  //     "name": "find-a-pro-staging",
+  //     "vars": {
+  //       "AUTH_URL": "https://staging.your-domain.com"
+  //     },
+  //     "d1_databases": [
+  //       {
+  //         "binding": "DB",
+  //         "database_name": "find-a-pro-db-staging",
+  //         "database_id": "TODO-replace-with-staging-database-id",
+  //         "migrations_dir": "drizzle"
+  //       }
+  //     ]
+  //   }
+  // }
+}
