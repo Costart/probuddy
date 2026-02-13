@@ -82,7 +82,7 @@ function makeCategorySections(categoryId: string, cat: typeof SEED_DATA[0]) {
       sectionType: "content",
       content: JSON.stringify({
         title: `About ${cat.name} Services`,
-        text: `Finding a reliable ${cat.name.toLowerCase()} can be stressful. At FindaPro, we connect you with vetted, licensed professionals who deliver quality work at fair prices.
+        text: `Finding a reliable ${cat.name.toLowerCase()} can be stressful. At ProBuddy, we connect you with vetted, licensed professionals who deliver quality work at fair prices.
 
 Whether it\'s a small repair or a major project, our network of ${cat.name.toLowerCase()}s are ready to help. Every pro in our network is background-checked, insured, and rated by real customers.`,
       }),

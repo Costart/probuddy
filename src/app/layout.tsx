@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", weight: ["500", "600", "700", "800"] })
 
 export const metadata: Metadata = {
-  title: { default: "FindaPro", template: "%s | FindaPro" },
+  title: { default: "ProBuddy", template: "%s | ProBuddy" },
   description: "Find trusted professionals for your home projects.",
 }
 

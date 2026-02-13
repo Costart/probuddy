@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/Card"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Find a Trusted Pro Near You | FindaPro",
+  title: "Find a Trusted Pro Near You | ProBuddy",
   description: "Connect with reliable, vetted professionals for plumbing, electrical, roofing, painting and more.",
 }
 
@@ -42,7 +42,16 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((cat) => (
               <Link key={cat.id} href={`/services/${cat.slug}`}>
-                <Card className="h-full hover:shadow-elevation-2 transition-shadow cursor-pointer">
+                <Card className="h-full hover:shadow-elevation-2 transition-shadow cursor-pointer overflow-hidden">
+                  {cat.imageUrl && (
+                    <div className="relative h-40 w-full">
+                      <img
+                        src={cat.imageUrl}
+                        alt={cat.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                   <CardContent className="p-6">
                     <h3 className="font-display text-lg font-bold text-on-surface mb-2">
                       {cat.name}

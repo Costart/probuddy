@@ -1,36 +1,53 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
+import { getCategoryCount } from "@/lib/db/queries/categories"
+import { getSubServiceCount } from "@/lib/db/queries/sub-services"
+import { getLeadCount } from "@/lib/db/queries/leads"
+import Link from "next/link"
 
-export const metadata = { title: "Dashboard" };
+export const metadata = { title: "Admin Dashboard" }
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  const [catCount, subCount, leadCount] = await Promise.all([
+    getCategoryCount(),
+    getSubServiceCount(),
+    getLeadCount(),
+  ])
+
+  const stats = [
+    { label: "Categories", value: catCount, href: "/dashboard/categories" },
+    { label: "Sub-Services", value: subCount, href: "/dashboard/sub-services" },
+    { label: "Leads", value: leadCount, href: "/dashboard/leads" },
+  ]
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-3xl font-extrabold text-on-surface">
-          Hello, {session.user.email}
+          Admin Dashboard
         </h1>
         <p className="mt-2 text-on-surface-variant">
-          You are signed in. Welcome to your dashboard.
+          Manage your ProBuddy services and content.
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Getting Started</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-on-surface-variant">
-            This is your protected dashboard. Start building your app by editing{" "}
-            <code className="rounded bg-surface-container px-1.5 py-0.5 text-sm font-mono text-primary">
-              src/app/(dashboard)/dashboard/page.tsx
-            </code>
-          </p>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {stats.map((stat) => (
+          <Link key={stat.label} href={stat.href}>
+            <Card className="hover:shadow-elevation-2 transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle>{stat.label}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="font-display text-4xl font-bold text-primary">{stat.value}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
-  );
+  )
 }

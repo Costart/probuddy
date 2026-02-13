@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getSubServiceBySlug(slug, subSlug)
   if (!data) return { title: "Service Not Found" }
   return {
-    title: `${data.name} | ${data.category.name} | FindaPro`,
+    title: `${data.name} | ${data.category.name} | ProBuddy`,
     description: data.description ?? `Find trusted professionals for ${data.name.toLowerCase()}.`,
   }
 }

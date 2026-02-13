@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getCategoryWithSubServices(slug)
   if (!data) return { title: "Service Not Found" }
   return {
-    title: `${data.name} Services | FindaPro`,
+    title: `${data.name} Services | ProBuddy`,
     description: data.description ?? `Find trusted ${data.name.toLowerCase()} professionals near you.`,
   }
 }
@@ -64,7 +64,16 @@ export default async function CategoryPage({ params }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {data.subServices.map((sub) => (
                     <Link key={sub.id} href={`/services/${slug}/${sub.slug}`}>
-                      <Card className="h-full hover:shadow-elevation-2 transition-shadow cursor-pointer">
+                      <Card className="h-full hover:shadow-elevation-2 transition-shadow cursor-pointer overflow-hidden">
+                        {sub.imageUrl && (
+                          <div className="relative h-32 w-full">
+                            <img
+                              src={sub.imageUrl}
+                              alt={sub.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
                         <CardContent className="p-5">
                           <h3 className="font-display text-base font-bold text-on-surface mb-1">
                             {sub.name}

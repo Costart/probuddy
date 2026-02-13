@@ -16,12 +16,15 @@
     "db:seed": "npx tsx src/lib/db/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "@google/generative-ai": "^0.24.1",
     "@opennextjs/cloudflare": "^1.16.4",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
     "nanoid": "^5.1.6",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
+    "openai": "^6.21.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0"

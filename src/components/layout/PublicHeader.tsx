@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Logo } from "./Logo"
 
 interface PublicHeaderProps {
   city?: string | null
@@ -8,8 +9,8 @@ export function PublicHeader({ city }: PublicHeaderProps) {
   return (
     <header className="border-b border-outline-variant/50 bg-white">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display text-xl font-extrabold text-primary">
-          FindaPro
+        <Link href="/">
+          <Logo />
         </Link>
         <nav className="hidden md:flex items-center gap-8">
           <Link href="/#services" className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors">

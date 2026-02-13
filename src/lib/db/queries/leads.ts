@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid"
+import { desc, count } from "drizzle-orm"
 import { getDb } from "@/lib/db"
 import { leadSubmissions } from "@/lib/db/schema"
 
@@ -20,4 +21,15 @@ export async function createLead(input: CreateLeadInput) {
     ...input,
   })
   return id
+}
+
+export async function getRecentLeads(limit = 50) {
+  const db = getDb()
+  return db.select().from(leadSubmissions).orderBy(desc(leadSubmissions.createdAt)).limit(limit)
+}
+
+export async function getLeadCount() {
+  const db = getDb()
+  const result = await db.select({ value: count() }).from(leadSubmissions).get()
+  return result?.value ?? 0
 }

@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "find-a-pro-db",
-      "database_id": "TODO-replace-with-your-database-id",
+      "database_id": "a491c5e2-6a29-45be-bb15-46563bcb21da",
       "migrations_dir": "drizzle"
     }
   ],
@@ -33,7 +33,7 @@
   // Non-secret values go here. Secrets (API keys, AUTH_SECRET) should be
   // set via: echo "value" | npx wrangler secret put SECRET_NAME
   "vars": {
-    // "AUTH_URL": "https://my-app.your-domain.com"
+    "AUTH_URL": "https://probuddy.ai"
   },
 
   // ---------- Observability ----------

@@ -30,6 +30,19 @@ export function SectionRenderer({ sections }: SectionRendererProps) {
           return null
         }
 
+        // Normalize: unwrap if AI returned nested like {faq: {title, items}} or {section_type: ..., content: {...}}
+        if (parsed && typeof parsed === "object") {
+          // Handle {section_type: "...", content: {...}} wrapper
+          if (parsed.content && typeof parsed.content === "object" && parsed.section_type) {
+            parsed = parsed.content
+          }
+          // Handle {faq: {...}}, {tips: {...}}, {questions: {...}} etc
+          const keys = Object.keys(parsed)
+          if (keys.length === 1 && typeof parsed[keys[0]] === "object" && !Array.isArray(parsed[keys[0]])) {
+            parsed = parsed[keys[0]]
+          }
+        }
+
         switch (section.sectionType) {
           case "hero":
             return <HeroSection key={section.id} content={parsed} />
