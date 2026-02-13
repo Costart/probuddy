@@ -6,8 +6,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", weight: ["500", "600", "700", "800"] })
 
 export const metadata: Metadata = {
-  title: { default: "My App", template: "%s | My App" },
-  description: "A Next.js starter template with Cloudflare D1 and Auth.js",
+  title: { default: "FindaPro", template: "%s | FindaPro" },
+  description: "Find trusted professionals for your home projects.",
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

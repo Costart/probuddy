@@ -8,8 +8,12 @@ export default auth((req) => {
   const authPages = ["/login", "/signup"];
   const isAuthPage = authPages.includes(pathname);
   const isDashboard = pathname.startsWith("/dashboard");
+  const isAdminApi = pathname.startsWith("/api/admin");
 
-  if (isDashboard && !user) {
+  if ((isDashboard || isAdminApi) && !user) {
+    if (isAdminApi) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
@@ -22,6 +26,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
