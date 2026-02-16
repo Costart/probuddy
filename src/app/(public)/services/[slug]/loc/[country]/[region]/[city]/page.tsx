@@ -1,13 +1,26 @@
 import { notFound } from "next/navigation";
-import { getLocationPageForCategoryRoute } from "@/lib/db/queries/locations";
+import {
+  getLocationPageForCategoryRoute,
+  createLocationPage,
+} from "@/lib/db/queries/locations";
+import { getCategoryBySlug } from "@/lib/db/queries/categories";
 import { getPageSections } from "@/lib/db/queries/sections";
 import { getGeoData } from "@/lib/geo";
-import { FindAProForm } from "@/components/FindAProForm";
-import { MapBackground } from "@/components/MapBackground";
+import { ProsList } from "@/components/ProsList";
 import { AiBuddyCard } from "@/components/AiBuddyCard";
+import { HeroSection } from "@/components/HeroSection";
+import { CityName } from "@/components/CityName";
+import { SharedPageProvider } from "@/components/SharedPageContext";
 import { Card, CardContent } from "@/components/ui/Card";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import type { Metadata } from "next";
+
+function unslugify(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 interface Props {
   params: Promise<{
@@ -37,13 +50,52 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LocationPage({ params }: Props) {
   const { slug, country, region, city } = await params;
-  const data = await getLocationPageForCategoryRoute(
-    slug,
-    country,
-    region,
-    city,
-  );
-  if (!data) notFound();
+  let data = await getLocationPageForCategoryRoute(slug, country, region, city);
+
+  // Auto-create location page if it doesn't exist
+  if (!data) {
+    const category = await getCategoryBySlug(slug);
+    if (!category) notFound();
+
+    const cityDisplay = unslugify(city);
+    const regionDisplay = unslugify(region);
+    const countryDisplay =
+      country === "us" ? "United States" : unslugify(country);
+
+    // Geocode for lat/lon
+    let lat: string | undefined;
+    let lon: string | undefined;
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${cityDisplay}, ${regionDisplay}, ${countryDisplay}`)}&format=json&limit=1`,
+        { headers: { "User-Agent": "ProBuddy/1.0" } },
+      );
+      const geoData = await geoRes.json();
+      if (geoData.length > 0) {
+        lat = geoData[0].lat;
+        lon = geoData[0].lon;
+      }
+    } catch {
+      // Continue without coordinates
+    }
+
+    await createLocationPage({
+      pageType: "category",
+      pageId: category.id,
+      country,
+      region,
+      city,
+      cityDisplay,
+      regionDisplay,
+      countryDisplay,
+      blurb: `Find trusted ${category.name.toLowerCase()} professionals in ${cityDisplay}, ${regionDisplay}. Connect with local pros who know your area.`,
+      lat,
+      lon,
+    });
+
+    data = await getLocationPageForCategoryRoute(slug, country, region, city);
+    if (!data) notFound();
+  }
 
   const geo = await getGeoData();
   const { location, categoryName, categoryDescription, categoryImageUrl } =
@@ -75,65 +127,74 @@ export default async function LocationPage({ params }: Props) {
     })
     .join("\n");
 
-  return (
-    <div>
-      {/* Hero with map background */}
-      <section className="relative overflow-hidden bg-gray-100">
-        {/* Map tile background */}
-        {location.lat && location.lon && (
-          <MapBackground lat={location.lat} lon={location.lon} />
-        )}
-        {/* Content */}
-        <div className="relative max-w-7xl mx-auto px-6 pt-12 pb-32 md:pt-16 md:pb-40">
-          <div className="inline-block bg-white/75 backdrop-blur-sm rounded-full px-10 py-6 shadow-lg">
-            <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-on-surface">
-              {categoryName} Services in {location.cityDisplay}
-            </h1>
-          </div>
-        </div>
-      </section>
+  const aiBuddyCard = (
+    <AiBuddyCard
+      categoryName={categoryName}
+      city={location.cityDisplay}
+      sectionTypes={sections.map((s) => s.sectionType)}
+      pageContext={pageContext}
+    />
+  );
 
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Reuse parent page sections */}
+  return (
+    <SharedPageProvider
+      initialGeo={{
+        lat: location.lat ?? null,
+        lon: location.lon ?? null,
+        city: location.cityDisplay,
+      }}
+    >
+      <div>
+        {/* Hero — reactive map via SharedPageContext */}
+        <HeroSection>
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+            <div className="flex-1 min-w-0">
+              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-8 py-5 shadow-lg">
+                <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
+                  {categoryName} Services
+                  <CityName fallback={location.cityDisplay} />
+                </h1>
+              </div>
+            </div>
+            <div className="w-full lg:w-[360px] flex-shrink-0">
+              {aiBuddyCard}
+            </div>
+          </div>
+        </HeroSection>
+
+        {/* Pros — full width */}
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <ProsList
+            serviceName={categoryName}
+            postalCode={geo.postalCode}
+            city={location.cityDisplay}
+            categorySlug={slug}
+          />
+        </div>
+
+        {/* Sections + Location */}
+        <div className="max-w-7xl mx-auto px-6 pb-12">
+          <div className="max-w-4xl space-y-8">
             <SectionRenderer sections={sections} />
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:-mt-52 relative z-10">
-            <div className="sticky top-8 space-y-6">
-              <AiBuddyCard
-                categoryName={categoryName}
-                city={location.cityDisplay}
-                sectionTypes={sections.map((s) => s.sectionType)}
-                pageContext={pageContext}
-              />
-              {location.blurb && (
-                <Card className="bg-white shadow-elevation-1 border border-gray-100">
-                  <CardContent className="p-5">
-                    <h3 className="font-display font-bold text-on-surface text-sm mb-2">
-                      About {categoryName} in {location.cityDisplay}
-                    </h3>
-                    <p className="text-sm text-on-surface-variant leading-relaxed">
-                      {location.blurb}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-              <Card>
+          {/* Location blurb */}
+          {location.blurb && (
+            <div className="max-w-3xl mt-8">
+              <Card className="bg-white shadow-elevation-1 border border-gray-100">
                 <CardContent className="p-6">
-                  <h2 className="font-display text-xl font-bold text-on-surface mb-4">
-                    Get a Free Quote in {location.cityDisplay}
-                  </h2>
-                  <FindAProForm geoData={geo} categorySlug={slug} />
+                  <h3 className="font-display font-bold text-on-surface mb-2">
+                    About {categoryName} in {location.cityDisplay}
+                  </h3>
+                  <p className="text-sm text-on-surface-variant leading-relaxed">
+                    {location.blurb}
+                  </p>
                 </CardContent>
               </Card>
             </div>
-          </div>
+          )}
         </div>
       </div>
-    </div>
+    </SharedPageProvider>
   );
 }

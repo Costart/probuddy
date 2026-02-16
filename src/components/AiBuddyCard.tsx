@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
+import { useSharedPage } from "@/components/SharedPageContext";
 
 interface AiBuddyCardProps {
   categoryName: string;
@@ -24,9 +25,6 @@ const sectionLabels: Record<string, string> = {
   image: "Visual examples",
 };
 
-// Cloudflare Turnstile test key (always passes) - replace with real key from dashboard
-const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
-
 function formatReply(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -40,19 +38,19 @@ export function AiBuddyCard({
   sectionTypes,
   pageContext,
 }: AiBuddyCardProps) {
+  // Shared context
+  const { turnstileToken, turnstileReady, scanStatus } = useSharedPage();
+
   // Chat state
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileReady, setTurnstileReady] = useState(false);
   const [typingReply, setTypingReply] = useState("");
   const [fullReply, setFullReply] = useState("");
   const [introTyped, setIntroTyped] = useState("");
   const [introDone, setIntroDone] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const turnstileRef = useRef<HTMLDivElement>(null);
 
   const points = sectionTypes
     .filter((t) => sectionLabels[t])
@@ -101,36 +99,6 @@ export function AiBuddyCard({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingReply]);
-
-  // Load Turnstile invisibly on mount
-  const onTurnstileLoad = useCallback(() => {
-    if (turnstileRef.current && (window as any).turnstile) {
-      (window as any).turnstile.render(turnstileRef.current, {
-        sitekey: TURNSTILE_SITE_KEY,
-        callback: (token: string) => {
-          setTurnstileToken(token);
-          setTurnstileReady(true);
-        },
-        size: "invisible",
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (document.querySelector('script[src*="turnstile"]')) {
-      if ((window as any).turnstile) onTurnstileLoad();
-      return;
-    }
-    const script = document.createElement("script");
-    script.src =
-      "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoaded";
-    script.async = true;
-    (window as any).onTurnstileLoaded = onTurnstileLoad;
-    document.head.appendChild(script);
-    return () => {
-      delete (window as any).onTurnstileLoaded;
-    };
-  }, [onTurnstileLoad]);
 
   async function handleSend() {
     if (!input.trim() || sending) return;
@@ -181,9 +149,6 @@ export function AiBuddyCard({
 
   return (
     <div>
-      {/* Hidden Turnstile container */}
-      <div ref={turnstileRef} className="hidden" />
-
       <Card className="bg-white shadow-elevation-2 border border-gray-100">
         <CardContent className="p-5">
           <div className="flex items-start gap-3 mb-3">
@@ -249,10 +214,113 @@ export function AiBuddyCard({
             )}
           </div>
 
+          {/* Scan status — live feed from ProsList (show searching even before intro finishes) */}
+          {(introDone || scanStatus.phase === "searching") &&
+            scanStatus.phase !== "idle" && (
+              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                {scanStatus.phase === "searching" && (
+                  <div className="flex items-center gap-2 text-xs text-primary">
+                    <svg
+                      className="w-3 h-3 animate-spin flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    <span>
+                      Finding{" "}
+                      {scanStatus.serviceName || categoryName.toLowerCase()}{" "}
+                      pros
+                      {city ? ` in ${city}` : ""}...
+                    </span>
+                  </div>
+                )}
+                {scanStatus.phase === "scanning" && (
+                  <div className="flex items-center gap-2 text-xs text-primary">
+                    <svg
+                      className="w-3 h-3 animate-spin flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    <span>
+                      Scanning {scanStatus.currentProName}...{" "}
+                      {scanStatus.phaseText}
+                    </span>
+                  </div>
+                )}
+                {scanStatus.phase === "ranking" && (
+                  <div className="flex items-center gap-2 text-xs text-primary animate-pulse">
+                    <span className="flex-shrink-0">&#10024;</span>
+                    <span>
+                      Ranking your best matches from {scanStatus.totalPros}{" "}
+                      pros...
+                    </span>
+                  </div>
+                )}
+                {scanStatus.phase === "done" && (
+                  <button
+                    onClick={() => {
+                      document
+                        .getElementById("pros-list")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                    }}
+                    className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700 transition-colors cursor-pointer"
+                  >
+                    <svg
+                      className="w-3 h-3 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m4.5 12.75 6 6 9-13.5"
+                      />
+                    </svg>
+                    <span>
+                      Found your top {scanStatus.topMatchCount} matches! Scroll
+                      down to see them.
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+
           {/* Chat button */}
           <button
             onClick={() => setChatOpen(true)}
-            className="w-full py-2.5 px-4 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 px-4 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 mt-3"
           >
             <svg
               className="w-4 h-4"
@@ -410,7 +478,7 @@ export function AiBuddyCard({
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   placeholder="Ask about this service..."
                   className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  disabled={sending || !turnstileReady}
+                  disabled={sending}
                   maxLength={500}
                   autoFocus
                 />

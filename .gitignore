@@ -18,6 +18,7 @@ yarn-error.log*
 .pnpm-debug.log*
 .env*
 !.env.local.example
+.dev.vars
 .vercel
 .open-next/
 .wrangler/

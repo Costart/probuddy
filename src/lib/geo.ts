@@ -6,6 +6,8 @@ export interface GeoData {
   region: string | null;
   regionCode: string | null;
   country: string | null;
+  latitude: string | null;
+  longitude: string | null;
 }
 
 export async function getGeoData(): Promise<GeoData> {
@@ -17,6 +19,8 @@ export async function getGeoData(): Promise<GeoData> {
       region: (cf as any)?.region ?? null,
       regionCode: (cf as any)?.regionCode ?? null,
       country: (cf as any)?.country ?? null,
+      latitude: (cf as any)?.latitude ?? null,
+      longitude: (cf as any)?.longitude ?? null,
     };
   } catch {
     return {
@@ -25,6 +29,8 @@ export async function getGeoData(): Promise<GeoData> {
       region: null,
       regionCode: null,
       country: null,
+      latitude: null,
+      longitude: null,
     };
   }
 }
