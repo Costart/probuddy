@@ -1,12 +1,14 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   emailVerified: integer("email_verified", { mode: "boolean" }).default(false),
-  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
-})
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
@@ -16,12 +18,16 @@ export const categories = sqliteTable("categories", {
   imageUrl: text("image_url"),
   sortOrder: integer("sort_order").default(0),
   isPublished: integer("is_published", { mode: "boolean" }).default(false),
-  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
-})
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 
 export const subServices = sqliteTable("sub_services", {
   id: text("id").primaryKey(),
-  categoryId: text("category_id").notNull().references(() => categories.id),
+  categoryId: text("category_id")
+    .notNull()
+    .references(() => categories.id),
   slug: text("slug").notNull(),
   name: text("name").notNull(),
   description: text("description"),
@@ -31,8 +37,10 @@ export const subServices = sqliteTable("sub_services", {
   imageUrl: text("image_url"),
   sortOrder: integer("sort_order").default(0),
   isPublished: integer("is_published", { mode: "boolean" }).default(false),
-  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
-})
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 
 export const pageSections = sqliteTable("page_sections", {
   id: text("id").primaryKey(),
@@ -42,16 +50,37 @@ export const pageSections = sqliteTable("page_sections", {
   content: text("content"),
   sortOrder: integer("sort_order").default(0),
   updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
-})
+});
 
 export const aiConfigs = sqliteTable("ai_configs", {
   id: text("id").primaryKey(),
-  sectionId: text("section_id").notNull().references(() => pageSections.id),
+  sectionId: text("section_id")
+    .notNull()
+    .references(() => pageSections.id),
   provider: text("provider").notNull(),
   model: text("model"),
   prompt: text("prompt").notNull(),
   lastGeneratedAt: text("last_generated_at"),
-})
+});
+
+export const locationPages = sqliteTable("location_pages", {
+  id: text("id").primaryKey(),
+  pageType: text("page_type").notNull(),
+  pageId: text("page_id").notNull(),
+  country: text("country").notNull(),
+  region: text("region").notNull(),
+  city: text("city").notNull(),
+  cityDisplay: text("city_display").notNull(),
+  regionDisplay: text("region_display").notNull(),
+  countryDisplay: text("country_display").notNull(),
+  blurb: text("blurb"),
+  mapUrl: text("map_url"),
+  lat: text("lat"),
+  lon: text("lon"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 
 export const leadSubmissions = sqliteTable("lead_submissions", {
   id: text("id").primaryKey(),
@@ -63,5 +92,7 @@ export const leadSubmissions = sqliteTable("lead_submissions", {
   detectedCity: text("detected_city"),
   detectedRegion: text("detected_region"),
   handoffStatus: text("handoff_status").default("pending"),
-  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
-})
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});

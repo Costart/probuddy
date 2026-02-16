@@ -1,18 +1,19 @@
-import Link from "next/link"
-import { getGeoData } from "@/lib/geo"
-import { getPublishedCategories } from "@/lib/db/queries/categories"
-import { Card, CardContent } from "@/components/ui/Card"
+import Link from "next/link";
+import { getGeoData } from "@/lib/geo";
+import { getPublishedCategories } from "@/lib/db/queries/categories";
+import { Card, CardContent } from "@/components/ui/Card";
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Find a Trusted Pro Near You | ProBuddy",
-  description: "Connect with reliable, vetted professionals for plumbing, electrical, roofing, painting and more.",
-}
+  description:
+    "Connect with reliable, vetted professionals for plumbing, electrical, roofing, painting and more.",
+};
 
 export default async function HomePage() {
-  const geo = await getGeoData()
-  const categories = await getPublishedCategories()
+  const geo = await getGeoData();
+  const categories = await getPublishedCategories();
 
   return (
     <div>
@@ -23,11 +24,12 @@ export default async function HomePage() {
             Find a Trusted Pro{geo.city ? ` in ${geo.city}` : " Near You"}
           </h1>
           <p className="text-xl text-on-surface-variant max-w-2xl mx-auto">
-            Connect with reliable professionals for your home projects. Get quotes, compare prices, and hire with confidence.
+            Connect with reliable professionals for your home projects. Get
+            quotes, compare prices, and hire with confidence.
           </p>
-          {geo.postalCode && (
+          {geo.city && (
             <p className="text-sm text-accent font-medium">
-              Showing pros near {geo.postalCode}{geo.city ? `, ${geo.city}` : ""}
+              Showing pros near {geo.city}
             </p>
           )}
         </div>
@@ -79,15 +81,29 @@ export default async function HomePage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { step: "1", title: "Choose a Service", desc: "Browse our categories and find the type of pro you need." },
-              { step: "2", title: "Describe Your Job", desc: "Tell us what you need done and where you are." },
-              { step: "3", title: "Get Matched", desc: "We connect you with vetted local professionals who can help." },
+              {
+                step: "1",
+                title: "Choose a Service",
+                desc: "Browse our categories and find the type of pro you need.",
+              },
+              {
+                step: "2",
+                title: "Describe Your Job",
+                desc: "Tell us what you need done and where you are.",
+              },
+              {
+                step: "3",
+                title: "Get Matched",
+                desc: "We connect you with vetted local professionals who can help.",
+              },
             ].map((item) => (
               <div key={item.step} className="text-center space-y-3">
                 <div className="w-12 h-12 rounded-full bg-primary text-on-primary font-display font-bold text-lg flex items-center justify-center mx-auto">
                   {item.step}
                 </div>
-                <h3 className="font-display text-lg font-bold text-on-surface">{item.title}</h3>
+                <h3 className="font-display text-lg font-bold text-on-surface">
+                  {item.title}
+                </h3>
                 <p className="text-sm text-on-surface-variant">{item.desc}</p>
               </div>
             ))}
@@ -95,5 +111,5 @@ export default async function HomePage() {
         </div>
       </section>
     </div>
-  )
+  );
 }
