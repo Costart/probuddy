@@ -55,6 +55,8 @@ interface ProsListProps {
   postalCode: string | null;
   city?: string | null;
   categorySlug: string;
+  locationLat?: string | null;
+  locationLon?: string | null;
 }
 
 function ExpandableText({
@@ -89,6 +91,8 @@ export function ProsList({
   postalCode,
   city,
   categorySlug,
+  locationLat,
+  locationLon,
 }: ProsListProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -107,6 +111,28 @@ export function ProsList({
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [noResults, setNoResults] = useState(false);
   const navigatingRef = useRef(false);
+
+  // Reverse-geocode location lat/lon to get a US zip when visitor has no US zip
+  useEffect(() => {
+    if (activeZip || !locationLat || !locationLon) return;
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${locationLat}&lon=${locationLon}&format=json&addressdetails=1&zoom=14`,
+      { headers: { "User-Agent": "ProBuddy/1.0" } },
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        const pc = data?.address?.postcode;
+        if (pc && /^\d{5}/.test(pc)) {
+          const zip = pc.match(/^\d{5}/)![0];
+          setActiveZip(zip);
+          setZipInput(zip);
+          setLoading(true);
+        }
+      })
+      .catch(() => {
+        // Couldn't resolve zip — user can enter one manually
+      });
+  }, [locationLat, locationLon, activeZip]);
 
   // Scan animation state
   const [scanningIndex, setScanningIndex] = useState(-1);
@@ -387,7 +413,7 @@ export function ProsList({
     };
   }, [turnstileToken, activeZip, query, setScanStatus, serviceName]);
 
-  if (!postalCode) return null;
+  if (!postalCode && !locationLat) return null;
 
   // Zip code badge — editable pill
   const zipBadge = activeZip ? (

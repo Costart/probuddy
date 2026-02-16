@@ -169,6 +169,8 @@ export default async function LocationPage({ params }: Props) {
             postalCode={geo.postalCode}
             city={location.cityDisplay}
             categorySlug={slug}
+            locationLat={location.lat}
+            locationLon={location.lon}
           />
         </div>
 
