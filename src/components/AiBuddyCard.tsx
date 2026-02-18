@@ -52,11 +52,21 @@ export function AiBuddyCard({
   const [introDone, setIntroDone] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const priorityOrder = [
+    "pricing",
+    "tips",
+    "faq",
+    "questions",
+    "content",
+    "image",
+  ];
   const points = sectionTypes
     .filter((t) => sectionLabels[t])
+    .sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b))
+    .slice(0, 3)
     .map((t) => ({ type: t, label: sectionLabels[t] }));
 
-  const introLine = `I've researched ${categoryName.toLowerCase()} services${city ? ` in ${city}` : ""} and put together everything you need to make the best decision.`;
+  const introLine = `I've researched ${categoryName.toLowerCase()} services${city ? ` in ${city}` : ""}. Here's what I found:`;
   const pointLines = points.map((p) => `👉 ${p.label}`);
   const fullIntroText = [introLine, ...pointLines].join("\n");
 
@@ -150,8 +160,8 @@ export function AiBuddyCard({
   return (
     <div>
       <Card className="bg-white shadow-elevation-2 border border-gray-100">
-        <CardContent className="p-5">
-          <div className="flex items-start gap-3 mb-3">
+        <CardContent className="p-3 md:p-4">
+          <div className="flex items-start gap-3 mb-2">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center">
               <svg
                 className="w-5 h-5 text-white"
@@ -177,14 +187,14 @@ export function AiBuddyCard({
             </div>
           </div>
 
-          <div className="text-sm text-on-surface-variant mb-3 space-y-1.5">
+          <div className="text-sm text-on-surface-variant mb-2 space-y-1">
             {introTyped.split("\n").map((line, i) => {
               const pointMatch = points.find((p) => line.includes(p.label));
               if (pointMatch) {
-                // Check if this line is fully typed
+                // Hide deep links on mobile
                 const isComplete = line === `👉 ${pointMatch.label}`;
                 return (
-                  <div key={pointMatch.type}>
+                  <div key={pointMatch.type} className="hidden md:block">
                     {isComplete ? (
                       <a
                         href={`#section-${pointMatch.type}`}
@@ -217,7 +227,7 @@ export function AiBuddyCard({
           {/* Scan status — live feed from ProsList (show searching even before intro finishes) */}
           {(introDone || scanStatus.phase === "searching") &&
             scanStatus.phase !== "idle" && (
-              <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
                 {scanStatus.phase === "searching" && (
                   <div className="flex items-center gap-2 text-xs text-primary">
                     <svg
@@ -286,12 +296,10 @@ export function AiBuddyCard({
                 {scanStatus.phase === "done" && (
                   <button
                     onClick={() => {
-                      document
-                        .getElementById("pros-list")
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
+                      document.getElementById("pros-list")?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
                     }}
                     className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700 transition-colors cursor-pointer"
                   >
@@ -320,7 +328,7 @@ export function AiBuddyCard({
           {/* Chat button */}
           <button
             onClick={() => setChatOpen(true)}
-            className="w-full py-2.5 px-4 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 mt-3"
+            className="w-full py-2 px-4 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 mt-2"
           >
             <svg
               className="w-4 h-4"

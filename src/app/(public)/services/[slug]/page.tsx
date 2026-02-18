@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getCategoryWithSubServices(slug);
   if (!data) return { title: "Service Not Found" };
   return {
-    title: `${data.name} Services | ProBuddy`,
+    title: `${data.name} Services`,
     description:
       data.description ??
       `Find trusted ${data.name.toLowerCase()} professionals near you.`,
@@ -81,11 +81,6 @@ export default async function CategoryPage({ params }: Props) {
     })
     .join("\n");
 
-  function formatPrice(cents: number | null) {
-    if (cents === null) return null;
-    return `\$${(cents / 100).toFixed(0)}`;
-  }
-
   // Use location data coordinates, or fall back to Cloudflare geo coordinates
   const mapLat = locationData?.lat ?? geo.latitude;
   const mapLon = locationData?.lon ?? geo.longitude;
@@ -111,79 +106,41 @@ export default async function CategoryPage({ params }: Props) {
       <div>
         {/* Hero — reactive map via SharedPageContext */}
         <HeroSection>
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 md:gap-8">
             <div className="flex-1 min-w-0">
-              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-8 py-5 shadow-lg">
-                <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
+              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
+                <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
                   {data.name} Services
                   <CityName fallback={cityDisplay ?? undefined} />
                 </h1>
               </div>
               {data.description && (
-                <p className="text-base text-on-surface-variant mt-3 max-w-2xl">
+                <p className="text-base text-on-surface-variant mt-3 max-w-2xl line-clamp-2">
                   {data.description}
                 </p>
               )}
             </div>
-            <div className="w-full lg:w-[360px] flex-shrink-0">
+            <div className="hidden lg:block w-full lg:w-[360px] flex-shrink-0">
               {aiBuddyCard}
             </div>
           </div>
         </HeroSection>
 
-        {/* Sub-services */}
-        {data.subServices.length > 0 && (
-          <div className="max-w-7xl mx-auto px-6 pt-12">
-            <h2 className="font-display text-2xl font-bold text-on-surface mb-6">
-              {data.name} Services We Cover
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.subServices.map((sub) => (
-                <Link key={sub.id} href={`/services/${slug}/${sub.slug}`}>
-                  <Card className="h-full hover:shadow-elevation-2 transition-shadow cursor-pointer overflow-hidden">
-                    {sub.imageUrl && (
-                      <div className="relative h-32 w-full">
-                        <img
-                          src={sub.imageUrl}
-                          alt={sub.name}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <CardContent className="p-5">
-                      <h3 className="font-display text-base font-bold text-on-surface mb-1">
-                        {sub.name}
-                      </h3>
-                      {sub.description && (
-                        <p className="text-sm text-on-surface-variant line-clamp-2 mb-2">
-                          {sub.description}
-                        </p>
-                      )}
-                      {(sub.priceLow !== null || sub.priceHigh !== null) && (
-                        <p className="text-sm font-medium text-accent">
-                          {formatPrice(sub.priceLow)}
-                          {sub.priceLow !== null && sub.priceHigh !== null
-                            ? " – "
-                            : ""}
-                          {formatPrice(sub.priceHigh)}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Pros — full width */}
+        {/* Pros — right after hero */}
         <div className="max-w-7xl mx-auto px-6 py-10">
           <ProsList
             serviceName={data.name}
             postalCode={geo.postalCode}
             city={geo.city}
             categorySlug={slug}
+            locationLat={mapLat}
+            locationLon={mapLon}
           />
+        </div>
+
+        {/* AI Buddy — mobile only (below pros) */}
+        <div className="lg:hidden max-w-7xl mx-auto px-6 pb-6">
+          {aiBuddyCard}
         </div>
 
         {/* Sections + Location */}
@@ -233,6 +190,26 @@ export default async function CategoryPage({ params }: Props) {
                 regionSlugged={regionSlugged}
                 citySlugged={citySlugged}
               />
+            </div>
+          )}
+
+          {/* Sub-services — text links at bottom */}
+          {data.subServices.length > 0 && (
+            <div className="mt-12 pt-8 border-t border-gray-200">
+              <h3 className="font-display text-lg font-bold text-on-surface mb-4">
+                {data.name} Services
+              </h3>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {data.subServices.map((sub) => (
+                  <Link
+                    key={sub.id}
+                    href={`/services/${slug}/${sub.slug}`}
+                    className="text-sm text-primary hover:text-primary-hover underline underline-offset-2 decoration-primary/30 hover:decoration-primary transition-colors"
+                  >
+                    {sub.name}
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
         </div>

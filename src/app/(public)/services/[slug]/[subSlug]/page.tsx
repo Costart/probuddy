@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getSubServiceBySlug(slug, subSlug);
   if (!data) return { title: "Service Not Found" };
   return {
-    title: `${data.name} | ${data.category.name} | ProBuddy`,
+    title: `${data.name} | ${data.category.name}`,
     description:
       data.description ??
       `Find trusted professionals for ${data.name.toLowerCase()}.`,
@@ -54,7 +54,7 @@ export default async function SubServicePage({ params }: Props) {
       : null;
 
   const locationUrl = locationData
-    ? `/services/${slug}/loc/${countrySlugged}/${regionSlugged}/${citySlugged}`
+    ? `/services/${slug}/${subSlug}/loc/${countrySlugged}/${regionSlugged}/${citySlugged}`
     : null;
 
   // Build context string for AI chat
@@ -157,25 +157,25 @@ export default async function SubServicePage({ params }: Props) {
       <div>
         {/* Hero — reactive map via SharedPageContext */}
         <HeroSection>
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 md:gap-8">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-accent uppercase tracking-wider mb-2">
                 {data.category.name}
               </p>
-              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-8 py-5 shadow-lg">
-                <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
+              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
+                <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
                   {data.name}
                   <CityName fallback={cityDisplay ?? undefined} />
                 </h1>
               </div>
               {data.description && (
-                <p className="text-base text-on-surface-variant mt-3 max-w-2xl">
+                <p className="text-base text-on-surface-variant mt-3 max-w-2xl line-clamp-2">
                   {data.description}
                 </p>
               )}
               {quickFactsPills}
             </div>
-            <div className="w-full lg:w-[360px] flex-shrink-0">
+            <div className="hidden lg:block w-full lg:w-[360px] flex-shrink-0">
               {aiBuddyCard}
             </div>
           </div>
@@ -188,7 +188,14 @@ export default async function SubServicePage({ params }: Props) {
             postalCode={geo.postalCode}
             city={geo.city}
             categorySlug={slug}
+            locationLat={mapLat}
+            locationLon={mapLon}
           />
+        </div>
+
+        {/* AI Buddy — mobile only (below pros) */}
+        <div className="lg:hidden max-w-7xl mx-auto px-6 pb-6">
+          {aiBuddyCard}
         </div>
 
         {/* Sections + Location */}

@@ -29,6 +29,7 @@ interface Props {
     region: string;
     city: string;
   }>;
+  searchParams: Promise<{ zip?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -41,15 +42,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
   if (!data) return { title: "Location Not Found" };
   return {
-    title: `${data.categoryName} in ${data.location.cityDisplay}, ${data.location.regionDisplay} | ProBuddy`,
+    title: `${data.categoryName} in ${data.location.cityDisplay}, ${data.location.regionDisplay}`,
     description:
       data.location.blurb ??
       `Find trusted ${data.categoryName.toLowerCase()} professionals in ${data.location.cityDisplay}.`,
   };
 }
 
-export default async function LocationPage({ params }: Props) {
+export default async function LocationPage({ params, searchParams }: Props) {
   const { slug, country, region, city } = await params;
+  const { zip: urlZip } = await searchParams;
   let data = await getLocationPageForCategoryRoute(slug, country, region, city);
 
   // Auto-create location page if it doesn't exist
@@ -147,16 +149,16 @@ export default async function LocationPage({ params }: Props) {
       <div>
         {/* Hero — reactive map via SharedPageContext */}
         <HeroSection>
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 md:gap-8">
             <div className="flex-1 min-w-0">
-              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-8 py-5 shadow-lg">
-                <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
+              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
+                <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
                   {categoryName} Services
                   <CityName fallback={location.cityDisplay} />
                 </h1>
               </div>
             </div>
-            <div className="w-full lg:w-[360px] flex-shrink-0">
+            <div className="hidden lg:block w-full lg:w-[360px] flex-shrink-0">
               {aiBuddyCard}
             </div>
           </div>
@@ -165,13 +167,19 @@ export default async function LocationPage({ params }: Props) {
         {/* Pros — full width */}
         <div className="max-w-7xl mx-auto px-6 py-10">
           <ProsList
+            key={`${city}-${urlZip || ""}`}
             serviceName={categoryName}
-            postalCode={geo.postalCode}
+            postalCode={urlZip || geo.postalCode}
             city={location.cityDisplay}
             categorySlug={slug}
             locationLat={location.lat}
             locationLon={location.lon}
           />
+        </div>
+
+        {/* AI Buddy — mobile only (below pros) */}
+        <div className="lg:hidden max-w-7xl mx-auto px-6 pb-6">
+          {aiBuddyCard}
         </div>
 
         {/* Sections + Location */}

@@ -1,74 +1,94 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ImagePicker } from "@/components/admin/ImagePicker";
 
 interface Category {
-  id: string
-  slug: string
-  name: string
-  description: string | null
-  imageUrl: string | null
-  sortOrder: number | null
-  isPublished: boolean | null
-  createdAt: string
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  sortOrder: number | null;
+  isPublished: boolean | null;
+  createdAt: string;
 }
 
-export function CategoryForm({ category }: { category: Category | null | undefined }) {
-  const router = useRouter()
-  const isNew = !category
+export function CategoryForm({
+  category,
+}: {
+  category: Category | null | undefined;
+}) {
+  const router = useRouter();
+  const isNew = !category;
 
-  const [name, setName] = useState(category?.name ?? "")
-  const [slug, setSlug] = useState(category?.slug ?? "")
-  const [description, setDescription] = useState(category?.description ?? "")
-  const [sortOrder, setSortOrder] = useState(category?.sortOrder ?? 0)
-  const [isPublished, setIsPublished] = useState(category?.isPublished ?? false)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [name, setName] = useState(category?.name ?? "");
+  const [slug, setSlug] = useState(category?.slug ?? "");
+  const [description, setDescription] = useState(category?.description ?? "");
+  const [sortOrder, setSortOrder] = useState(category?.sortOrder ?? 0);
+  const [imageUrl, setImageUrl] = useState(category?.imageUrl ?? "");
+  const [isPublished, setIsPublished] = useState(
+    category?.isPublished ?? false,
+  );
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function autoSlug(val: string) {
-    return val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    return val
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 
   async function handleSave() {
-    setSaving(true)
+    setSaving(true);
     try {
       if (isNew) {
         const res = await fetch("/api/admin/categories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, slug, description, sortOrder }),
-        })
-        const data = await res.json()
+        });
+        const data = await res.json();
         if (res.ok) {
-          router.push(`/dashboard/categories/${data.id}`)
-          router.refresh()
+          router.push(`/dashboard/categories/${data.id}`);
+          router.refresh();
         }
       } else {
         await fetch(`/api/admin/categories/${category.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, slug, description, sortOrder, isPublished }),
-        })
-        router.refresh()
+          body: JSON.stringify({
+            name,
+            slug,
+            description,
+            imageUrl: imageUrl || null,
+            sortOrder,
+            isPublished,
+          }),
+        });
+        router.refresh();
       }
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!confirm("Delete this category and all its sub-services?")) return
-    setDeleting(true)
+    if (!confirm("Delete this category and all its sub-services?")) return;
+    setDeleting(true);
     try {
-      await fetch(`/api/admin/categories/${category!.id}`, { method: "DELETE" })
-      router.push("/dashboard/categories")
-      router.refresh()
+      await fetch(`/api/admin/categories/${category!.id}`, {
+        method: "DELETE",
+      });
+      router.push("/dashboard/categories");
+      router.refresh();
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
@@ -84,8 +104,8 @@ export function CategoryForm({ category }: { category: Category | null | undefin
             id="name"
             value={name}
             onChange={(e) => {
-              setName(e.target.value)
-              if (isNew) setSlug(autoSlug(e.target.value))
+              setName(e.target.value);
+              if (isNew) setSlug(autoSlug(e.target.value));
             }}
             placeholder="e.g. Plumber"
           />
@@ -97,7 +117,9 @@ export function CategoryForm({ category }: { category: Category | null | undefin
             placeholder="e.g. plumber"
           />
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-on-surface-variant mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-on-surface-variant mb-1.5">
+              Description
+            </label>
             <textarea
               className="flex w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary min-h-[80px]"
               value={description}
@@ -105,6 +127,30 @@ export function CategoryForm({ category }: { category: Category | null | undefin
               placeholder="Short description of this trade category"
             />
           </div>
+          <div className="md:col-span-2">
+            <Input
+              label="Image URL"
+              id="imageUrl"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://..."
+            />
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Category preview"
+                className="mt-2 h-24 w-36 object-cover rounded-lg border border-outline-variant"
+              />
+            )}
+          </div>
+          {!isNew && (
+            <div className="md:col-span-2">
+              <ImagePicker
+                categoryId={category.id}
+                onImageChange={(url) => setImageUrl(url ?? "")}
+              />
+            </div>
+          )}
           <Input
             label="Sort Order"
             id="sortOrder"
@@ -121,7 +167,12 @@ export function CategoryForm({ category }: { category: Category | null | undefin
                 onChange={(e) => setIsPublished(e.target.checked)}
                 className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
               />
-              <label htmlFor="published" className="text-sm font-medium text-on-surface">Published</label>
+              <label
+                htmlFor="published"
+                className="text-sm font-medium text-on-surface"
+              >
+                Published
+              </label>
             </div>
           )}
         </div>
@@ -129,16 +180,24 @@ export function CategoryForm({ category }: { category: Category | null | undefin
           <Button onClick={handleSave} disabled={saving || !name || !slug}>
             {saving ? "Saving..." : isNew ? "Create" : "Save Changes"}
           </Button>
-          <Button variant="outlined" onClick={() => router.push("/dashboard/categories")}>
+          <Button
+            variant="outlined"
+            onClick={() => router.push("/dashboard/categories")}
+          >
             Cancel
           </Button>
           {!isNew && (
-            <Button variant="text" className="ml-auto text-error" onClick={handleDelete} disabled={deleting}>
+            <Button
+              variant="text"
+              className="ml-auto text-error"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
               {deleting ? "Deleting..." : "Delete"}
             </Button>
           )}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

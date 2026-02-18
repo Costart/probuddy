@@ -1,8 +1,8 @@
-import Link from "next/link"
-import { Logo } from "./Logo"
+import Link from "next/link";
+import { Logo } from "./Logo";
 
 interface PublicHeaderProps {
-  city?: string | null
+  city?: string | null;
 }
 
 export function PublicHeader({ city }: PublicHeaderProps) {
@@ -13,23 +13,43 @@ export function PublicHeader({ city }: PublicHeaderProps) {
           <Logo />
         </Link>
         <nav className="hidden md:flex items-center gap-8">
-          <Link href="/#services" className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors">
+          <Link
+            href="/services"
+            className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+          >
             Services
           </Link>
-          <Link href="/#how-it-works" className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors">
+          <Link
+            href="/#how-it-works"
+            className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+          >
             How It Works
           </Link>
         </nav>
         {city && (
           <div className="hidden sm:flex items-center gap-1.5 text-sm text-on-surface-variant">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+              />
             </svg>
             <span>{city}</span>
           </div>
         )}
       </div>
     </header>
-  )
+  );
 }

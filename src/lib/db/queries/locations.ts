@@ -55,6 +55,42 @@ export async function getLocationPageForCategoryRoute(
   return rows ?? null;
 }
 
+export async function getLocationPageForSubServiceRoute(
+  categorySlug: string,
+  subServiceSlug: string,
+  country: string,
+  region: string,
+  city: string,
+) {
+  const db = getDb();
+  const rows = await db
+    .select({
+      location: locationPages,
+      subServiceName: subServices.name,
+      subServiceDescription: subServices.description,
+      subServicePriceLow: subServices.priceLow,
+      subServicePriceHigh: subServices.priceHigh,
+      subServiceDuration: subServices.durationEstimate,
+      categoryName: categories.name,
+      categorySlug: categories.slug,
+    })
+    .from(locationPages)
+    .innerJoin(subServices, eq(locationPages.pageId, subServices.id))
+    .innerJoin(categories, eq(subServices.categoryId, categories.id))
+    .where(
+      and(
+        eq(locationPages.pageType, "sub_service"),
+        eq(categories.slug, categorySlug),
+        eq(subServices.slug, subServiceSlug),
+        eq(locationPages.country, country),
+        eq(locationPages.region, region),
+        eq(locationPages.city, city),
+      ),
+    )
+    .get();
+  return rows ?? null;
+}
+
 interface CreateLocationInput {
   pageType: string;
   pageId: string;

@@ -1,4 +1,9 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -36,6 +41,7 @@ export const subServices = sqliteTable("sub_services", {
   durationEstimate: text("duration_estimate"),
   imageUrl: text("image_url"),
   sortOrder: integer("sort_order").default(0),
+  thumbtackCategoryPk: text("thumbtack_category_pk"),
   isPublished: integer("is_published", { mode: "boolean" }).default(false),
   createdAt: text("created_at")
     .notNull()
@@ -96,3 +102,39 @@ export const leadSubmissions = sqliteTable("lead_submissions", {
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
 });
+
+export const categoryImages = sqliteTable("category_images", {
+  id: text("id").primaryKey(),
+  categoryId: text("category_id")
+    .notNull()
+    .references(() => categories.id),
+  imageUrl: text("image_url").notNull(),
+  label: text("label"),
+  isActive: integer("is_active", { mode: "boolean" }).default(false),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const searchResults = sqliteTable(
+  "search_results",
+  {
+    id: text("id").primaryKey(),
+    zipCode: text("zip_code").notNull(),
+    query: text("query").notNull(),
+    categorySlug: text("category_slug"),
+    thumbtackCategory: text("thumbtack_category"),
+    thumbtackCategoryId: text("thumbtack_category_id"),
+    requestLocation: text("request_location"),
+    resultCount: integer("result_count").notNull(),
+    searchedAt: text("searched_at")
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+  },
+  (table) => [
+    uniqueIndex("search_results_zip_category_idx").on(
+      table.zipCode,
+      table.categorySlug,
+    ),
+  ],
+);

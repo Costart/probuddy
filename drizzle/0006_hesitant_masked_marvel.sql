@@ -1,0 +1,1 @@
+ALTER TABLE `sub_services` ADD `thumbtack_category_pk` text;

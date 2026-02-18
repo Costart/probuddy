@@ -1,41 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-const THUMBTACK_API_URL = "https://api.thumbtack.com";
-const THUMBTACK_TOKEN_URL = "https://auth.thumbtack.com/oauth2/token";
-
-async function getAccessToken(
-  clientId: string,
-  clientSecret: string,
-): Promise<string> {
-  const credentials = btoa(`${clientId}:${clientSecret}`);
-
-  const response = await fetch(THUMBTACK_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      audience: "urn:partner-api",
-      scope: "demand::businesses/search.read",
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Thumbtack OAuth error:", response.status, errorText);
-    throw new Error("Failed to obtain Thumbtack access token");
-  }
-
-  const data = await response.json();
-  return data.access_token;
-}
+import { eq, and } from "drizzle-orm";
+import { getAccessToken, searchThumbtack } from "@/lib/thumbtack";
+import { getDb } from "@/lib/db";
+import { searchResults } from "@/lib/db/schema";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { query, zipCode, turnstileToken, limit = 10 } = body;
+  const { query, zipCode, turnstileToken, categorySlug, limit = 10 } = body;
 
   if (!query || !zipCode || !/^\d{5}$/.test(zipCode)) {
     return NextResponse.json({ businesses: [], metadata: null });
@@ -49,9 +21,9 @@ export async function POST(request: Request) {
     env = process.env;
   }
 
-  // Verify Turnstile token
+  // Verify Turnstile token (skip if no token provided)
   const turnstileSecret = env.TURNSTILE_SECRET_KEY;
-  if (turnstileSecret) {
+  if (turnstileSecret && turnstileToken) {
     const verifyRes = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       {
@@ -59,7 +31,7 @@ export async function POST(request: Request) {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           secret: turnstileSecret,
-          response: turnstileToken || "",
+          response: turnstileToken,
         }),
       },
     );
@@ -82,66 +54,57 @@ export async function POST(request: Request) {
 
   try {
     const accessToken = await getAccessToken(clientId, clientSecret);
+    const result = await searchThumbtack(accessToken, {
+      query,
+      zipCode,
+      partnerId,
+      limit,
+    });
 
-    const response = await fetch(
-      `${THUMBTACK_API_URL}/api/v4/businesses/search-filtered`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userQuery: query,
-          zipCode,
-          utmData: {
-            utm_source: partnerId,
-            utm_medium: "partnership",
-          },
-          limit,
-        }),
-      },
-    );
+    // Log search result to database (fire-and-forget)
+    if (categorySlug) {
+      try {
+        const db = getDb();
+        const existing = await db
+          .select({ id: searchResults.id })
+          .from(searchResults)
+          .where(
+            and(
+              eq(searchResults.zipCode, zipCode),
+              eq(searchResults.categorySlug, categorySlug),
+            ),
+          )
+          .get();
 
-    if (!response.ok) {
-      console.error("Thumbtack search error:", response.status);
-      return NextResponse.json({ businesses: [], metadata: null });
+        if (existing) {
+          await db
+            .update(searchResults)
+            .set({
+              query,
+              thumbtackCategory: result.metadata?.categoryName || null,
+              thumbtackCategoryId: result.metadata?.categoryID || null,
+              requestLocation: result.metadata?.location || null,
+              resultCount: result.businesses.length,
+              searchedAt: new Date().toISOString(),
+            })
+            .where(eq(searchResults.id, existing.id));
+        } else {
+          const { nanoid } = await import("nanoid");
+          await db.insert(searchResults).values({
+            id: nanoid(),
+            zipCode,
+            query,
+            categorySlug,
+            thumbtackCategory: result.metadata?.categoryName || null,
+            thumbtackCategoryId: result.metadata?.categoryID || null,
+            requestLocation: result.metadata?.location || null,
+            resultCount: result.businesses.length,
+          });
+        }
+      } catch (dbErr) {
+        console.error("Failed to log search result:", dbErr);
+      }
     }
-
-    const data = await response.json();
-
-    const result = {
-      businesses: (data.data || []).map((biz: any) => ({
-        id: biz.businessID,
-        name: biz.businessName,
-        introduction: biz.businessIntroduction,
-        location: biz.businessLocation,
-        imageUrl: biz.businessImageURL,
-        rating: biz.rating,
-        reviewCount: biz.numberOfReviews,
-        featuredReview: biz.featuredReview,
-        yearsInBusiness: biz.yearsInBusiness,
-        numberOfHires: biz.numberOfHires,
-        responseTimeHours: biz.responseTimeHours,
-        isTopPro: biz.isTopPro,
-        isBackgroundChecked: biz.isBackgroundChecked,
-        quote: biz.quote
-          ? {
-              startingCost: biz.quote.startingCost,
-              costUnit: biz.quote.costUnit,
-            }
-          : null,
-        servicePageUrl: biz.servicePageURL,
-        requestFlowUrl: biz.widgets?.requestFlowURL,
-        pills: biz.pills || [],
-      })),
-      metadata: data.metadata
-        ? {
-            categoryName: data.metadata.categoryName,
-            location: data.metadata.requestLocation,
-          }
-        : null,
-    };
 
     return NextResponse.json(result);
   } catch (err) {

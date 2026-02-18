@@ -1,28 +1,29 @@
-import { auth } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { getCategoryCount } from "@/lib/db/queries/categories"
-import { getSubServiceCount } from "@/lib/db/queries/sub-services"
-import { getLeadCount } from "@/lib/db/queries/leads"
-import Link from "next/link"
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { getCategoryCount } from "@/lib/db/queries/categories";
+import { getSubServiceCount } from "@/lib/db/queries/sub-services";
+import { getLeadCount } from "@/lib/db/queries/leads";
+import { GenerateSitemapButton } from "@/components/admin/GenerateSitemapButton";
+import Link from "next/link";
 
-export const metadata = { title: "Admin Dashboard" }
+export const metadata = { title: "Admin Dashboard" };
 
 export default async function DashboardPage() {
-  const session = await auth()
-  if (!session?.user) redirect("/login")
+  const session = await auth();
+  if (!session?.user) redirect("/login");
 
   const [catCount, subCount, leadCount] = await Promise.all([
     getCategoryCount(),
     getSubServiceCount(),
     getLeadCount(),
-  ])
+  ]);
 
   const stats = [
     { label: "Categories", value: catCount, href: "/dashboard/categories" },
     { label: "Sub-Services", value: subCount, href: "/dashboard/sub-services" },
     { label: "Leads", value: leadCount, href: "/dashboard/leads" },
-  ]
+  ];
 
   return (
     <div className="space-y-8">
@@ -42,12 +43,28 @@ export default async function DashboardPage() {
                 <CardTitle>{stat.label}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-display text-4xl font-bold text-primary">{stat.value}</p>
+                <p className="font-display text-4xl font-bold text-primary">
+                  {stat.value}
+                </p>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
+
+      {/* Sitemap */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sitemap</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-on-surface-variant">
+            Generate XML sitemaps for search engines. Includes categories,
+            sub-services, and location pages with verified pro coverage.
+          </p>
+          <GenerateSitemapButton />
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }

@@ -100,6 +100,7 @@ export function ProsList({
   const displayCity = city;
   const initialZip = postalCode?.match(/^\d{5}/)?.[0] || "";
   const [pros, setPros] = useState<Business[]>([]);
+  const scanCount = Math.min(SCAN_CARD_COUNT, pros.length || SCAN_CARD_COUNT);
   const [loading, setLoading] = useState(!!initialZip);
   const hasFetched = useRef(false);
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
@@ -150,7 +151,11 @@ export function ProsList({
   const aiReadyRef = useRef(false);
 
   const searchterm = searchParams.get("searchterm");
-  const query = searchterm ? `${serviceName} for ${searchterm}` : serviceName;
+  const baseQuery = searchterm
+    ? `${serviceName} for ${searchterm}`
+    : serviceName;
+  const query =
+    baseQuery.length < 13 ? `${baseQuery} services near me` : baseQuery;
 
   // Handle zip code change — geocode and navigate to location page
   function handleZipSubmit() {
@@ -182,8 +187,8 @@ export function ProsList({
           const cityName = place["place name"];
           const stateName = place.state;
           if (cityName && stateName) {
-            const url = `/services/${categorySlug}/loc/us/${slugify(stateName)}/${slugify(cityName)}`;
-            router.push(url);
+            const url = `/services/${categorySlug}/loc/us/${slugify(stateName)}/${slugify(cityName)}?zip=${newZip}`;
+            window.location.href = url;
             return;
           }
         }
@@ -210,7 +215,7 @@ export function ProsList({
       phase: "scanning",
       currentProName: pros[scanningIndex]?.name,
       phaseText: SCAN_PHASES[0],
-      progress: (scanningIndex + 1) / SCAN_CARD_COUNT,
+      progress: (scanningIndex + 1) / scanCount,
       totalPros: pros.length,
     });
     phaseTextTimer.current = setInterval(() => {
@@ -220,7 +225,7 @@ export function ProsList({
         phase: "scanning",
         currentProName: pros[scanningIndex]?.name,
         phaseText: SCAN_PHASES[idx],
-        progress: (scanningIndex + 1) / SCAN_CARD_COUNT,
+        progress: (scanningIndex + 1) / scanCount,
         totalPros: pros.length,
       });
     }, SCAN_PHASE_INTERVAL);
@@ -234,8 +239,8 @@ export function ProsList({
   useEffect(() => {
     if (phase !== "scanning" || scanningIndex < 0) return;
 
-    if (scanningIndex >= SCAN_CARD_COUNT || scanningIndex >= pros.length) {
-      // Scan phase done — transition to ranking or done
+    if (scanningIndex >= scanCount) {
+      // All cards scanned — transition to ranking if AI ready
       if (aiReadyRef.current) {
         setPhase("ranking");
       }
@@ -244,19 +249,16 @@ export function ProsList({
 
     // Wait for scan duration + gap, then advance
     scanTimer.current = setTimeout(() => {
-      if (aiReadyRef.current && scanningIndex >= SCAN_CARD_COUNT - 1) {
-        // AI ready and this is the last scan card — go to ranking
-        setScanningIndex((prev) => prev + 1);
+      setScanningIndex((prev) => prev + 1);
+      if (aiReadyRef.current && scanningIndex >= scanCount - 1) {
         setPhase("ranking");
-      } else {
-        setScanningIndex((prev) => prev + 1);
       }
     }, SCAN_DURATION_MS + SCAN_GAP_MS);
 
     return () => {
       if (scanTimer.current) clearTimeout(scanTimer.current);
     };
-  }, [phase, scanningIndex, pros.length]);
+  }, [phase, scanningIndex, scanCount]);
 
   // "Ranking" transition — hold then reveal
   useEffect(() => {
@@ -281,20 +283,14 @@ export function ProsList({
 
   // When AI arrives during scanning phase and scans are done
   useEffect(() => {
-    if (aiDone && phase === "scanning" && scanningIndex >= SCAN_CARD_COUNT) {
+    if (aiDone && phase === "scanning" && scanningIndex >= scanCount) {
       setPhase("ranking");
     }
-  }, [aiDone, phase, scanningIndex]);
+  }, [aiDone, phase, scanningIndex, scanCount]);
 
   // Fetch pros + AI ranking in parallel
   useEffect(() => {
-    if (
-      !turnstileToken ||
-      !activeZip ||
-      hasFetched.current ||
-      navigatingRef.current
-    )
-      return;
+    if (!activeZip || hasFetched.current || navigatingRef.current) return;
 
     if (!/^\d{5}$/.test(activeZip)) {
       setLoading(false);
@@ -318,6 +314,7 @@ export function ProsList({
             query,
             zipCode,
             turnstileToken,
+            categorySlug,
             limit: 30,
           }),
           signal: controller.signal,
@@ -362,7 +359,7 @@ export function ProsList({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            businesses: businesses.slice(0, 10).map((b) => ({
+            businesses: businesses.map((b) => ({
               id: b.id,
               name: b.name,
               rating: b.rating,
@@ -411,7 +408,7 @@ export function ProsList({
       if (scanTimer.current) clearTimeout(scanTimer.current);
       if (phaseTextTimer.current) clearInterval(phaseTextTimer.current);
     };
-  }, [turnstileToken, activeZip, query, setScanStatus, serviceName]);
+  }, [activeZip, query, setScanStatus, serviceName, turnstileToken]);
 
   if (!postalCode && !locationLat) return null;
 
@@ -590,6 +587,7 @@ export function ProsList({
               ? "Try a different zip code to search another area"
               : "We need a 5-digit US zip code to search for local professionals"}
           </p>
+
           <div className="flex items-center justify-center gap-2">
             <input
               ref={zipInputRef}
@@ -748,7 +746,7 @@ export function ProsList({
                   : "Finishing scan..."}
               </p>
               <span className="text-xs font-bold text-primary/60">
-                {Math.min(scanningIndex + 1, SCAN_CARD_COUNT)}/{SCAN_CARD_COUNT}
+                {Math.min(scanningIndex + 1, scanCount)}/{scanCount}
               </span>
             </div>
             <p className="text-xs text-on-surface-variant mt-0.5">
@@ -759,7 +757,7 @@ export function ProsList({
               <div
                 className="h-full bg-primary/50 rounded-full transition-all duration-500 ease-out"
                 style={{
-                  width: `${((scanningIndex + 1) / SCAN_CARD_COUNT) * 100}%`,
+                  width: `${((scanningIndex + 1) / scanCount) * 100}%`,
                 }}
               />
             </div>
@@ -815,7 +813,7 @@ export function ProsList({
           const isCurrentlyScan =
             !isDone && phase === "scanning" && index === scanningIndex;
           const isPlaced = !isDone && index < scanningIndex;
-          const isBulkRevealed = isDone && index >= SCAN_CARD_COUNT;
+          const isBulkRevealed = isDone && index >= scanCount;
 
           let cardClass = "flex flex-col";
           if (isCurrentlyScan) {
@@ -836,7 +834,7 @@ export function ProsList({
               style={
                 isBulkRevealed
                   ? {
-                      animationDelay: `${(index - SCAN_CARD_COUNT) * 100}ms`,
+                      animationDelay: `${(index - scanCount) * 100}ms`,
                     }
                   : undefined
               }

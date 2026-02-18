@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 interface BusinessInput {
   id: string;
@@ -26,13 +27,20 @@ export async function POST(request: Request) {
       return NextResponse.json(null);
     }
 
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    let env: any;
+    try {
+      const ctx = await getCloudflareContext({ async: true });
+      env = ctx.env;
+    } catch {
+      env = process.env;
+    }
+
+    const apiKey = env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(null);
     }
 
-    // Only rank the first 10
-    const toRank = businesses.slice(0, 10);
+    const toRank = businesses;
 
     // Use short IDs in prompt to save tokens, map back after
     const shortIdToReal = new Map<string, string>();
