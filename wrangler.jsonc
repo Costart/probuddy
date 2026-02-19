@@ -32,6 +32,7 @@
   // set via: echo "value" | npx wrangler secret put SECRET_NAME
   "vars": {
     "AUTH_URL": "https://probuddy.ai",
+    "NEXT_PUBLIC_CLARITY_PROJECT_ID": "vjscrko4st",
   },
 
   // ---------- Observability ----------

@@ -12,6 +12,7 @@ import { CityName } from "@/components/CityName";
 import { SharedPageProvider } from "@/components/SharedPageContext";
 import { Card, CardContent } from "@/components/ui/Card";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
+import { ClarityTags } from "@/components/ClarityTags";
 import type { Metadata } from "next";
 
 interface Props {
@@ -154,6 +155,11 @@ export default async function SubServicePage({ params }: Props) {
         city: cityDisplay ?? null,
       }}
     >
+      <ClarityTags
+        pageType="sub-service"
+        category={data.name}
+        city={cityDisplay ?? undefined}
+      />
       <div>
         {/* Hero — reactive map via SharedPageContext */}
         <HeroSection>

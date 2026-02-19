@@ -15,7 +15,7 @@ const navLinks = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/categories", label: "Categories" },
   { href: "/dashboard/sub-services", label: "Sub-Services" },
-  { href: "/dashboard/leads", label: "Leads" },
+
   { href: "/dashboard/coverage", label: "Coverage" },
 ];
 

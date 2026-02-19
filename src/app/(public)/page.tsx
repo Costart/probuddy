@@ -8,6 +8,7 @@ import { SharedPageProvider } from "@/components/SharedPageContext";
 import { CityName } from "@/components/CityName";
 import { AiScanShowcase } from "@/components/home/AiScanShowcase";
 import { AiBuddyShowcase } from "@/components/home/AiBuddyShowcase";
+import { ClarityTags } from "@/components/ClarityTags";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function HomePage() {
         city: geo.city ?? null,
       }}
     >
+      <ClarityTags pageType="homepage" city={geo.city ?? undefined} />
       <div>
         {/* ─── Section 1: Geo-Personalized Map Hero ─── */}
         <HeroSection>

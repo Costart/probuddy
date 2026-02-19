@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useSharedPage } from "@/components/SharedPageContext";
+import { clarityEvent } from "@/lib/clarity";
 
 interface AiBuddyCardProps {
   categoryName: string;
@@ -117,6 +118,7 @@ export function AiBuddyCard({
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
     setSending(true);
+    clarityEvent("ai_buddy_message");
 
     try {
       const res = await fetch("/api/chat", {
@@ -327,7 +329,10 @@ export function AiBuddyCard({
 
           {/* Chat button */}
           <button
-            onClick={() => setChatOpen(true)}
+            onClick={() => {
+              clarityEvent("ai_buddy_opened");
+              setChatOpen(true);
+            }}
             className="w-full py-2 px-4 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 mt-2"
           >
             <svg

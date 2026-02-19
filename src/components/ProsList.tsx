@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { useSharedPage } from "@/components/SharedPageContext";
+import { clarityEvent } from "@/lib/clarity";
 
 function slugify(text: string): string {
   return text
@@ -82,6 +83,127 @@ function ExpandableText({
       >
         {expanded ? "Show Less" : "Read More +"}
       </button>
+    </div>
+  );
+}
+
+function ThumbstackModal({
+  url,
+  onClose,
+}: {
+  url: string;
+  onClose: () => void;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    // Listen for postMessage from Thumbtack iframe (close events)
+    function handleMessage(e: MessageEvent) {
+      // Thumbtack may send close/dismiss messages
+      if (
+        typeof e.data === "string" &&
+        (e.data === "close" || e.data === "dismiss" || e.data.includes("close"))
+      ) {
+        onClose();
+        return;
+      }
+      if (typeof e.data === "object" && e.data !== null) {
+        const type = e.data.type || e.data.action || e.data.event || "";
+        if (
+          typeof type === "string" &&
+          (type.includes("close") ||
+            type.includes("dismiss") ||
+            type.includes("exit"))
+        ) {
+          onClose();
+        }
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onClose]);
+
+  // Detect iframe navigation (Thumbtack close button navigates to about:blank or similar)
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    let initialLoad = true;
+    function handleLoad() {
+      if (initialLoad) {
+        initialLoad = false;
+        return;
+      }
+      // After initial load, any navigation likely means close was clicked
+      try {
+        const loc = iframe!.contentWindow?.location.href;
+        if (loc === "about:blank" || loc === "about:srcdoc") {
+          onClose();
+        }
+      } catch {
+        // Cross-origin — can't read location, which is expected for Thumbtack
+      }
+    }
+
+    iframe.addEventListener("load", handleLoad);
+    return () => iframe.removeEventListener("load", handleLoad);
+  }, [onClose]);
+
+  // Close on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-3xl h-[85vh] mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <p className="font-display font-bold text-on-surface text-sm">
+            Get Your Free Quote
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:text-primary-hover font-medium"
+            >
+              Open in new tab
+            </a>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-on-surface-variant"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18 18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <iframe
+          ref={iframeRef}
+          src={url}
+          className="flex-1 w-full border-0"
+          allow="payment; clipboard-write"
+          title="Request a quote"
+        />
+      </div>
     </div>
   );
 }
@@ -168,6 +290,7 @@ export function ProsList({
     if (newZip === activeZip && !noResults) return;
 
     // Show loading while we geocode — don't update activeZip to avoid triggering fetch effect
+    clarityEvent("zip_changed");
     navigatingRef.current = true;
     setActiveZip(newZip);
     setPros([]);
@@ -302,6 +425,7 @@ export function ProsList({
 
     // Broadcast searching phase immediately
     setScanStatus({ phase: "searching", serviceName });
+    clarityEvent("pro_search");
 
     async function fetchPros() {
       try {
@@ -1085,14 +1209,20 @@ export function ProsList({
               <div className="p-6 pt-0 mt-auto">
                 {pro.requestFlowUrl ? (
                   <button
-                    onClick={() => setIframeUrl(pro.requestFlowUrl)}
+                    onClick={() => {
+                      clarityEvent("quote_flow_started");
+                      setIframeUrl(pro.requestFlowUrl);
+                    }}
                     className="block w-full text-center text-sm font-semibold py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     Compare Free Quotes
                   </button>
                 ) : pro.servicePageUrl ? (
                   <button
-                    onClick={() => setIframeUrl(pro.servicePageUrl)}
+                    onClick={() => {
+                      clarityEvent("pro_profile_viewed");
+                      setIframeUrl(pro.servicePageUrl);
+                    }}
                     className="block w-full text-center text-sm font-semibold py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     View Profile
@@ -1106,53 +1236,13 @@ export function ProsList({
 
       {/* Iframe modal */}
       {iframeUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="fixed inset-0 bg-black/50"
-            onClick={() => setIframeUrl(null)}
-          />
-          <div className="relative w-full max-w-3xl h-[85vh] mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-              <p className="font-display font-bold text-on-surface text-sm">
-                Get Your Free Quote
-              </p>
-              <div className="flex items-center gap-3">
-                <a
-                  href={iframeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:text-primary-hover font-medium"
-                >
-                  Open in new tab
-                </a>
-                <button
-                  onClick={() => setIframeUrl(null)}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-on-surface-variant"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18 18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <iframe
-              src={iframeUrl}
-              className="flex-1 w-full border-0"
-              allow="payment; clipboard-write"
-              title="Request a quote"
-            />
-          </div>
-        </div>
+        <ThumbstackModal
+          url={iframeUrl}
+          onClose={() => {
+            clarityEvent("quote_modal_closed");
+            setIframeUrl(null);
+          }}
+        />
       )}
     </div>
   );

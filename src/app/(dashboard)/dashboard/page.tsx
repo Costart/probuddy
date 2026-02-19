@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { getCategoryCount } from "@/lib/db/queries/categories";
 import { getSubServiceCount } from "@/lib/db/queries/sub-services";
-import { getLeadCount } from "@/lib/db/queries/leads";
+
 import { GenerateSitemapButton } from "@/components/admin/GenerateSitemapButton";
 import Link from "next/link";
 
@@ -13,16 +13,14 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const [catCount, subCount, leadCount] = await Promise.all([
+  const [catCount, subCount] = await Promise.all([
     getCategoryCount(),
     getSubServiceCount(),
-    getLeadCount(),
   ]);
 
   const stats = [
     { label: "Categories", value: catCount, href: "/dashboard/categories" },
     { label: "Sub-Services", value: subCount, href: "/dashboard/sub-services" },
-    { label: "Leads", value: leadCount, href: "/dashboard/leads" },
   ];
 
   return (

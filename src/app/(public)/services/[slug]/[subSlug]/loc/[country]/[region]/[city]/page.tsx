@@ -13,6 +13,7 @@ import { CityName } from "@/components/CityName";
 import { SharedPageProvider } from "@/components/SharedPageContext";
 import { Card, CardContent } from "@/components/ui/Card";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
+import { ClarityTags } from "@/components/ClarityTags";
 import type { Metadata } from "next";
 
 function unslugify(slug: string): string {
@@ -231,6 +232,11 @@ export default async function SubServiceLocationPage({
         city: location.cityDisplay,
       }}
     >
+      <ClarityTags
+        pageType="location"
+        category={subServiceName}
+        city={location.cityDisplay}
+      />
       <div>
         {/* Hero */}
         <HeroSection>
