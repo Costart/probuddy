@@ -27,12 +27,21 @@
     },
   ],
 
+  // ---------- KV namespaces ----------
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "ea8ddc3988d842ca988a513816138d9a",
+    },
+  ],
+
   // ---------- Environment variables ----------
   // Non-secret values go here. Secrets (API keys, AUTH_SECRET) should be
   // set via: echo "value" | npx wrangler secret put SECRET_NAME
   "vars": {
     "AUTH_URL": "https://probuddy.ai",
     "NEXT_PUBLIC_CLARITY_PROJECT_ID": "vjscrko4st",
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACfm-CiNXBHa4jmt",
   },
 
   // ---------- Observability ----------

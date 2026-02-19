@@ -139,6 +139,7 @@ export default async function CategoryPage({ params }: Props) {
             postalCode={geo.postalCode}
             city={geo.city}
             categorySlug={slug}
+            categoryId={data.id}
             locationLat={mapLat}
             locationLon={mapLon}
           />

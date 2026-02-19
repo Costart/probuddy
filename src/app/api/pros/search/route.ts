@@ -21,9 +21,30 @@ export async function POST(request: Request) {
     env = process.env;
   }
 
-  // Verify Turnstile token (skip if no token provided)
+  // --- Layer 1: Check KV cache (no Turnstile needed for cached results) ---
+  const cache = env.CACHE;
+  const cacheKey = `pros:${zipCode}:${categorySlug || query}`;
+
+  if (cache) {
+    try {
+      const cached = await cache.get(cacheKey, "json");
+      if (cached) {
+        return NextResponse.json(cached);
+      }
+    } catch {
+      // KV read failed — fall through to Thumbtack
+    }
+  }
+
+  // --- Layer 2: Require Turnstile for cache misses ---
   const turnstileSecret = env.TURNSTILE_SECRET_KEY;
-  if (turnstileSecret && turnstileToken) {
+  if (turnstileSecret) {
+    if (!turnstileToken) {
+      return NextResponse.json(
+        { error: "Verification required" },
+        { status: 403 },
+      );
+    }
     const verifyRes = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       {
@@ -44,6 +65,7 @@ export async function POST(request: Request) {
     }
   }
 
+  // --- Layer 3: Fetch from Thumbtack API ---
   const clientId = env.THUMBTACK_CLIENT_ID;
   const clientSecret = env.THUMBTACK_CLIENT_SECRET;
   const partnerId = env.THUMBTACK_PARTNER_ID || "cma-highintentlabs";
@@ -53,13 +75,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    const accessToken = await getAccessToken(clientId, clientSecret);
+    const accessToken = await getAccessToken(clientId, clientSecret, cache);
     const result = await searchThumbtack(accessToken, {
       query,
       zipCode,
       partnerId,
       limit,
     });
+
+    // Write to KV cache (1 week TTL, fire-and-forget)
+    if (cache && result.businesses.length > 0) {
+      cache.put(cacheKey, JSON.stringify(result), { expirationTtl: 604800 }).catch(() => {});
+    }
 
     // Log search result to database (fire-and-forget)
     if (categorySlug) {

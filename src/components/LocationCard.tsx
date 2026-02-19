@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/Card";
+import { useSharedPage } from "@/components/SharedPageContext";
 
 interface LocationCardProps {
   pageType: string;
@@ -38,6 +39,7 @@ export function LocationCard({
   regionSlugged,
   citySlugged,
 }: LocationCardProps) {
+  const { turnstileToken } = useSharedPage();
   const [location, setLocation] = useState<LocationData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,6 +59,7 @@ export function LocationCard({
             cityDisplay: city,
             regionDisplay: regionCode || region,
             countryDisplay: country,
+            turnstileToken,
           }),
         });
         if (res.ok) {

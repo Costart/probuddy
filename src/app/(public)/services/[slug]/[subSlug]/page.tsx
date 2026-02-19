@@ -194,6 +194,7 @@ export default async function SubServicePage({ params }: Props) {
             postalCode={geo.postalCode}
             city={geo.city}
             categorySlug={slug}
+            categoryId={data.category.id}
             locationLat={mapLat}
             locationLon={mapLon}
           />

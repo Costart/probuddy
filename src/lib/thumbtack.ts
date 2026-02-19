@@ -4,7 +4,18 @@ const THUMBTACK_TOKEN_URL = "https://auth.thumbtack.com/oauth2/token";
 export async function getAccessToken(
   clientId: string,
   clientSecret: string,
+  cache?: any,
 ): Promise<string> {
+  // Check KV cache for existing token
+  if (cache) {
+    try {
+      const cached = await cache.get("thumbtack:token");
+      if (cached) return cached;
+    } catch {
+      // KV read failed — fetch fresh token
+    }
+  }
+
   const credentials = btoa(`${clientId}:${clientSecret}`);
 
   const response = await fetch(THUMBTACK_TOKEN_URL, {
@@ -27,6 +38,13 @@ export async function getAccessToken(
   }
 
   const data = await response.json();
+
+  // Cache token in KV (25 min TTL — tokens typically last 30 min)
+  if (cache && data.access_token) {
+    const ttl = Math.max((data.expires_in || 1800) - 300, 60);
+    cache.put("thumbtack:token", data.access_token, { expirationTtl: ttl }).catch(() => {});
+  }
+
   return data.access_token;
 }
 

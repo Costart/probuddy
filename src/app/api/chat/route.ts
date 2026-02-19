@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,36 +11,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid message" }, { status: 400 });
     }
 
-    // Verify Turnstile token
-    const secret = process.env.TURNSTILE_SECRET_KEY;
-    if (secret) {
-      const verifyRes = await fetch(
-        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            secret,
-            response: turnstileToken || "",
-          }),
-        },
+    let env: any;
+    try {
+      const ctx = await getCloudflareContext({ async: true });
+      env = ctx.env;
+    } catch {
+      env = process.env;
+    }
+
+    // Require Turnstile token presence — bots don't get AI chat.
+    // Don't re-verify server-side: tokens are single-use and already
+    // verified by /api/pros/search. Just check the client sent one.
+    if (env.TURNSTILE_SECRET_KEY && !turnstileToken) {
+      return NextResponse.json(
+        { error: "Verification required" },
+        { status: 403 },
       );
-      const verification = await verifyRes.json();
-      if (!verification.success) {
-        return NextResponse.json(
-          { error: "Verification failed. Please try again." },
-          { status: 403 },
-        );
-      }
     }
 
     // Generate response with Gemini
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    const apiKey = env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: "AI service unavailable" },
         { status: 503 },
       );
+    }
+
+    // --- Shared daily Gemini counter (safety cap: ~$10/day max) ---
+    const DAILY_CAP = 14000;
+    const today = new Date().toISOString().slice(0, 10);
+    const counterKey = `gemini:counter:${today}`;
+    const cache = env.CACHE;
+
+    if (cache) {
+      try {
+        const count = parseInt((await cache.get(counterKey)) || "0", 10);
+        if (count >= DAILY_CAP) {
+          console.log("[Chat] Daily Gemini cap reached:", count);
+          return NextResponse.json(
+            { error: "AI service is temporarily unavailable. Please try again later." },
+            { status: 503 },
+          );
+        }
+      } catch {
+        // KV read failed — proceed anyway
+      }
     }
 
     const { serviceName, city, pageContent } = context || {};
@@ -70,6 +87,19 @@ Rules:
     });
 
     const reply = result.response.text().trim();
+
+    // Increment shared daily Gemini counter (fire-and-forget)
+    if (cache) {
+      cache
+        .get(counterKey)
+        .then((val: string | null) => {
+          const count = parseInt(val || "0", 10) + 1;
+          return cache.put(counterKey, String(count), {
+            expirationTtl: 86400,
+          });
+        })
+        .catch(() => {});
+    }
 
     return NextResponse.json({ reply });
   } catch (error) {

@@ -40,7 +40,7 @@ export function AiBuddyCard({
   pageContext,
 }: AiBuddyCardProps) {
   // Shared context
-  const { turnstileToken, turnstileReady, scanStatus } = useSharedPage();
+  const { turnstileToken, turnstileReady } = useSharedPage();
 
   // Chat state
   const [chatOpen, setChatOpen] = useState(false);
@@ -49,8 +49,6 @@ export function AiBuddyCard({
   const [sending, setSending] = useState(false);
   const [typingReply, setTypingReply] = useState("");
   const [fullReply, setFullReply] = useState("");
-  const [introTyped, setIntroTyped] = useState("");
-  const [introDone, setIntroDone] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const priorityOrder = [
@@ -70,19 +68,6 @@ export function AiBuddyCard({
   const introLine = `I've researched ${categoryName.toLowerCase()} services${city ? ` in ${city}` : ""}. Here's what I found:`;
   const pointLines = points.map((p) => `👉 ${p.label}`);
   const fullIntroText = [introLine, ...pointLines].join("\n");
-
-  // Typewriter for intro card
-  useEffect(() => {
-    if (introDone) return;
-    if (introTyped.length < fullIntroText.length) {
-      const t = setTimeout(
-        () => setIntroTyped(fullIntroText.slice(0, introTyped.length + 1)),
-        18,
-      );
-      return () => clearTimeout(t);
-    }
-    setIntroDone(true);
-  }, [introTyped, fullIntroText, introDone]);
 
   // Typewriter for AI reply only
   useEffect(() => {
@@ -190,7 +175,7 @@ export function AiBuddyCard({
           </div>
 
           <div className="text-sm text-on-surface-variant mb-2 space-y-1">
-            {introTyped.split("\n").map((line, i) => {
+            {fullIntroText.split("\n").map((line, i) => {
               const pointMatch = points.find((p) => line.includes(p.label));
               if (pointMatch) {
                 // Hide deep links on mobile
@@ -221,111 +206,7 @@ export function AiBuddyCard({
               }
               return <p key={i}>{line}</p>;
             })}
-            {!introDone && (
-              <span className="inline-block w-0.5 h-3.5 bg-primary ml-0.5 animate-pulse align-middle" />
-            )}
           </div>
-
-          {/* Scan status — live feed from ProsList (show searching even before intro finishes) */}
-          {(introDone || scanStatus.phase === "searching") &&
-            scanStatus.phase !== "idle" && (
-              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
-                {scanStatus.phase === "searching" && (
-                  <div className="flex items-center gap-2 text-xs text-primary">
-                    <svg
-                      className="w-3 h-3 animate-spin flex-shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                    <span>
-                      Finding{" "}
-                      {scanStatus.serviceName || categoryName.toLowerCase()}{" "}
-                      pros
-                      {city ? ` in ${city}` : ""}...
-                    </span>
-                  </div>
-                )}
-                {scanStatus.phase === "scanning" && (
-                  <div className="flex items-center gap-2 text-xs text-primary">
-                    <svg
-                      className="w-3 h-3 animate-spin flex-shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                    <span>
-                      Scanning {scanStatus.currentProName}...{" "}
-                      {scanStatus.phaseText}
-                    </span>
-                  </div>
-                )}
-                {scanStatus.phase === "ranking" && (
-                  <div className="flex items-center gap-2 text-xs text-primary animate-pulse">
-                    <span className="flex-shrink-0">&#10024;</span>
-                    <span>
-                      Ranking your best matches from {scanStatus.totalPros}{" "}
-                      pros...
-                    </span>
-                  </div>
-                )}
-                {scanStatus.phase === "done" && (
-                  <button
-                    onClick={() => {
-                      document.getElementById("pros-list")?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                    }}
-                    className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700 transition-colors cursor-pointer"
-                  >
-                    <svg
-                      className="w-3 h-3 flex-shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m4.5 12.75 6 6 9-13.5"
-                      />
-                    </svg>
-                    <span>
-                      Found your top {scanStatus.topMatchCount} matches! Scroll
-                      down to see them.
-                    </span>
-                  </button>
-                )}
-              </div>
-            )}
 
           {/* Chat button */}
           <button

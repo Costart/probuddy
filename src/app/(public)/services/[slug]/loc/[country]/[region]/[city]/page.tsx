@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
-import {
-  getLocationPageForCategoryRoute,
-  createLocationPage,
-} from "@/lib/db/queries/locations";
-import { getCategoryBySlug } from "@/lib/db/queries/categories";
+import { getLocationPageForCategoryRoute } from "@/lib/db/queries/locations";
 import { getPageSections } from "@/lib/db/queries/sections";
 import { getGeoData } from "@/lib/geo";
 import { ProsList } from "@/components/ProsList";
@@ -53,55 +49,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LocationPage({ params, searchParams }: Props) {
   const { slug, country, region, city } = await params;
   const { zip: urlZip } = await searchParams;
-  let data = await getLocationPageForCategoryRoute(slug, country, region, city);
+  const data = await getLocationPageForCategoryRoute(slug, country, region, city);
 
-  // Auto-create location page if it doesn't exist
-  if (!data) {
-    const category = await getCategoryBySlug(slug);
-    if (!category) notFound();
-
-    const cityDisplay = unslugify(city);
-    const regionDisplay = unslugify(region);
-    const countryDisplay =
-      country === "us" ? "United States" : unslugify(country);
-
-    // Geocode for lat/lon
-    let lat: string | undefined;
-    let lon: string | undefined;
-    try {
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${cityDisplay}, ${regionDisplay}, ${countryDisplay}`)}&format=json&limit=1`,
-        { headers: { "User-Agent": "ProBuddy/1.0" } },
-      );
-      const geoData = await geoRes.json();
-      if (geoData.length > 0) {
-        lat = geoData[0].lat;
-        lon = geoData[0].lon;
-      }
-    } catch {
-      // Continue without coordinates
-    }
-
-    await createLocationPage({
-      pageType: "category",
-      pageId: category.id,
-      country,
-      region,
-      city,
-      cityDisplay,
-      regionDisplay,
-      countryDisplay,
-      blurb: `Find trusted ${category.name.toLowerCase()} professionals in ${cityDisplay}, ${regionDisplay}. Connect with local pros who know your area.`,
-      lat,
-      lon,
-    });
-
-    data = await getLocationPageForCategoryRoute(slug, country, region, city);
-    if (!data) notFound();
-  }
+  // Location pages are only created via the zip code flow (/api/locations/generate)
+  if (!data) notFound();
 
   const geo = await getGeoData();
-  const { location, categoryName, categoryDescription, categoryImageUrl } =
+  const { location, categoryId, categoryName, categoryDescription, categoryImageUrl } =
     data;
   const sections = await getPageSections(location.pageType, location.pageId);
   const displayLocation = `${location.cityDisplay}, ${location.regionDisplay}`;
@@ -178,6 +132,7 @@ export default async function LocationPage({ params, searchParams }: Props) {
             postalCode={urlZip || geo.postalCode}
             city={location.cityDisplay}
             categorySlug={slug}
+            categoryId={categoryId}
             locationLat={location.lat}
             locationLon={location.lon}
           />

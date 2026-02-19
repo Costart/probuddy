@@ -36,6 +36,7 @@ export async function getLocationPageForCategoryRoute(
   const rows = await db
     .select({
       location: locationPages,
+      categoryId: categories.id,
       categoryName: categories.name,
       categoryDescription: categories.description,
       categoryImageUrl: categories.imageUrl,
@@ -71,6 +72,7 @@ export async function getLocationPageForSubServiceRoute(
       subServicePriceLow: subServices.priceLow,
       subServicePriceHigh: subServices.priceHigh,
       subServiceDuration: subServices.durationEstimate,
+      categoryId: categories.id,
       categoryName: categories.name,
       categorySlug: categories.slug,
     })

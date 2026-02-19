@@ -56,6 +56,7 @@ interface ProsListProps {
   postalCode: string | null;
   city?: string | null;
   categorySlug: string;
+  categoryId: string;
   locationLat?: string | null;
   locationLon?: string | null;
 }
@@ -94,63 +95,16 @@ function ThumbstackModal({
   url: string;
   onClose: () => void;
 }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
   useEffect(() => {
-    // Listen for postMessage from Thumbtack iframe (close events)
     function handleMessage(e: MessageEvent) {
-      // Thumbtack may send close/dismiss messages
-      if (
-        typeof e.data === "string" &&
-        (e.data === "close" || e.data === "dismiss" || e.data.includes("close"))
-      ) {
+      if (e.data === "THUMBTACK_RF_CLOSE") {
         onClose();
-        return;
-      }
-      if (typeof e.data === "object" && e.data !== null) {
-        const type = e.data.type || e.data.action || e.data.event || "";
-        if (
-          typeof type === "string" &&
-          (type.includes("close") ||
-            type.includes("dismiss") ||
-            type.includes("exit"))
-        ) {
-          onClose();
-        }
       }
     }
-
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [onClose]);
 
-  // Detect iframe navigation (Thumbtack close button navigates to about:blank or similar)
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    let initialLoad = true;
-    function handleLoad() {
-      if (initialLoad) {
-        initialLoad = false;
-        return;
-      }
-      // After initial load, any navigation likely means close was clicked
-      try {
-        const loc = iframe!.contentWindow?.location.href;
-        if (loc === "about:blank" || loc === "about:srcdoc") {
-          onClose();
-        }
-      } catch {
-        // Cross-origin — can't read location, which is expected for Thumbtack
-      }
-    }
-
-    iframe.addEventListener("load", handleLoad);
-    return () => iframe.removeEventListener("load", handleLoad);
-  }, [onClose]);
-
-  // Close on Escape key
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -162,44 +116,10 @@ function ThumbstackModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-3xl h-[85vh] mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <p className="font-display font-bold text-on-surface text-sm">
-            Get Your Free Quote
-          </p>
-          <div className="flex items-center gap-3">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary hover:text-primary-hover font-medium"
-            >
-              Open in new tab
-            </a>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-on-surface-variant"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18 18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
+      <div className="relative w-full max-w-3xl h-[85vh] mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden">
         <iframe
-          ref={iframeRef}
           src={url}
-          className="flex-1 w-full border-0"
+          className="w-full h-full border-0"
           allow="payment; clipboard-write"
           title="Request a quote"
         />
@@ -213,6 +133,7 @@ export function ProsList({
   postalCode,
   city,
   categorySlug,
+  categoryId,
   locationLat,
   locationLon,
 }: ProsListProps) {
@@ -304,12 +225,29 @@ export function ProsList({
         if (!res.ok) throw new Error("Zip not found");
         return res.json();
       })
-      .then((data) => {
+      .then(async (data) => {
         const place = data.places?.[0];
         if (place) {
           const cityName = place["place name"];
           const stateName = place.state;
           if (cityName && stateName) {
+            // Create location page before navigating so it exists when the page loads
+            await fetch("/api/locations/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                pageType: "category",
+                pageId: categoryId,
+                pageName: serviceName,
+                country: "us",
+                region: slugify(stateName),
+                city: slugify(cityName),
+                cityDisplay: cityName,
+                regionDisplay: stateName,
+                countryDisplay: "United States",
+                turnstileToken,
+              }),
+            }).catch(() => {});
             const url = `/services/${categorySlug}/loc/us/${slugify(stateName)}/${slugify(cityName)}?zip=${newZip}`;
             window.location.href = url;
             return;
@@ -413,7 +351,7 @@ export function ProsList({
 
   // Fetch pros + AI ranking in parallel
   useEffect(() => {
-    if (!activeZip || hasFetched.current || navigatingRef.current) return;
+    if (!activeZip || !turnstileToken || hasFetched.current || navigatingRef.current) return;
 
     if (!/^\d{5}$/.test(activeZip)) {
       setLoading(false);
@@ -498,6 +436,8 @@ export function ProsList({
             })),
             query,
             zipCode: zip,
+            categorySlug,
+            turnstileToken,
           }),
         });
         const data = await res.json();

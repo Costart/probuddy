@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateContent } from "@/lib/ai";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import {
   getLocationPage,
   createLocationPage,
@@ -17,12 +18,29 @@ export async function POST(request: Request) {
     cityDisplay,
     regionDisplay,
     countryDisplay,
+    turnstileToken,
   } = body;
 
   if (!pageType || !pageId || !pageName || !country || !region || !city) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 },
+    );
+  }
+
+  let env: any;
+  try {
+    const ctx = await getCloudflareContext({ async: true });
+    env = ctx.env;
+  } catch {
+    env = process.env;
+  }
+
+  // Require Turnstile token — bots don't get location page generation
+  if (env.TURNSTILE_SECRET_KEY && !turnstileToken) {
+    return NextResponse.json(
+      { error: "Verification required" },
+      { status: 403 },
     );
   }
 
@@ -39,14 +57,35 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Pick the best available provider
-    const provider = process.env.GOOGLE_AI_API_KEY
-      ? "gemini"
-      : process.env.ANTHROPIC_API_KEY
-        ? "anthropic"
-        : process.env.OPENAI_API_KEY
-          ? "openai"
-          : null;
+    // --- Shared daily Gemini counter (safety cap: ~$10/day max) ---
+    const DAILY_CAP = 14000;
+    const today = new Date().toISOString().slice(0, 10);
+    const counterKey = `gemini:counter:${today}`;
+    const cache = env.CACHE;
+    let capReached = false;
+
+    if (cache) {
+      try {
+        const count = parseInt((await cache.get(counterKey)) || "0", 10);
+        if (count >= DAILY_CAP) {
+          console.log("[Location] Daily Gemini cap reached:", count);
+          capReached = true;
+        }
+      } catch {
+        // KV read failed — proceed anyway
+      }
+    }
+
+    // Pick the best available provider (skip AI if daily cap reached)
+    const provider = capReached
+      ? null
+      : env.GOOGLE_AI_API_KEY
+        ? "gemini"
+        : env.ANTHROPIC_API_KEY
+          ? "anthropic"
+          : env.OPENAI_API_KEY
+            ? "openai"
+            : null;
 
     let blurb = `Find trusted ${pageName.toLowerCase()} professionals in ${cityDisplay}, ${regionDisplay}. Connect with local pros who know your area.`;
 
@@ -63,7 +102,21 @@ export async function POST(request: Request) {
             .replace(/\n?```$/m, "")
             .trim(),
         );
-        if (parsed.blurb) blurb = parsed.blurb;
+        if (parsed.blurb) {
+          blurb = parsed.blurb;
+          // Increment shared daily Gemini counter (fire-and-forget)
+          if (cache) {
+            cache
+              .get(counterKey)
+              .then((val: string | null) => {
+                const count = parseInt(val || "0", 10) + 1;
+                return cache.put(counterKey, String(count), {
+                  expirationTtl: 86400,
+                });
+              })
+              .catch(() => {});
+          }
+        }
       } catch {
         // Use fallback blurb if AI fails
       }

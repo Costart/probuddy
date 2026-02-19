@@ -17,11 +17,14 @@ interface BusinessInput {
 
 export async function POST(request: Request) {
   try {
-    const { businesses, query, zipCode } = (await request.json()) as {
-      businesses: BusinessInput[];
-      query: string;
-      zipCode: string;
-    };
+    const { businesses, query, zipCode, categorySlug, turnstileToken } =
+      (await request.json()) as {
+        businesses: BusinessInput[];
+        query: string;
+        zipCode: string;
+        categorySlug?: string;
+        turnstileToken?: string;
+      };
 
     if (!businesses?.length || !query) {
       return NextResponse.json(null);
@@ -35,9 +38,51 @@ export async function POST(request: Request) {
       env = process.env;
     }
 
+    // Require Turnstile token presence — bots don't get AI ranking.
+    // Don't re-verify server-side: tokens are single-use and already
+    // verified by /api/pros/search. Just check the client sent one.
+    if (env.TURNSTILE_SECRET_KEY && !turnstileToken) {
+      return NextResponse.json(null);
+    }
+
+    // --- Check KV cache for existing ranking ---
+    const cache = env.CACHE;
+    const cacheKey = categorySlug
+      ? `rank:${zipCode}:${categorySlug}:${query}`
+      : null;
+
+    if (cache && cacheKey) {
+      try {
+        const cached = await cache.get(cacheKey, "json");
+        if (cached) {
+          console.log("[Rank] Cache hit:", cacheKey);
+          return NextResponse.json(cached);
+        }
+      } catch {
+        // KV read failed — fall through to Gemini
+      }
+    }
+
     const apiKey = env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(null);
+    }
+
+    // --- Daily call counter (safety cap: ~$10/day max) ---
+    const DAILY_CAP = 14000; // 1,500 free + ~12,500 paid ≈ $10
+    const today = new Date().toISOString().slice(0, 10);
+    const counterKey = `gemini:counter:${today}`;
+
+    if (cache) {
+      try {
+        const count = parseInt((await cache.get(counterKey)) || "0", 10);
+        if (count >= DAILY_CAP) {
+          console.log("[Rank] Daily cap reached:", count);
+          return NextResponse.json(null);
+        }
+      } catch {
+        // KV read failed — proceed anyway
+      }
     }
 
     const toRank = businesses;
@@ -93,7 +138,7 @@ Respond with JSON:
       "pros",
     );
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -142,11 +187,33 @@ Respond with JSON:
       }),
     );
 
+    const result = { rankings };
+
+    // Increment daily counter (fire-and-forget)
+    if (cache) {
+      cache
+        .get(counterKey)
+        .then((val: string | null) => {
+          const count = parseInt(val || "0", 10) + 1;
+          return cache.put(counterKey, String(count), {
+            expirationTtl: 86400,
+          });
+        })
+        .catch(() => {});
+    }
+
+    // Write to KV cache (1 week TTL, fire-and-forget)
+    if (cache && cacheKey) {
+      cache
+        .put(cacheKey, JSON.stringify(result), { expirationTtl: 604800 })
+        .catch(() => {});
+    }
+
     console.log(
       "[Rank] Success, top 3:",
       rankings.slice(0, 3).map((r: any) => r.id),
     );
-    return NextResponse.json({ rankings });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("[Rank] Error:", error);
     return NextResponse.json(null);

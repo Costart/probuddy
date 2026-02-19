@@ -9,7 +9,7 @@ import {
   useEffect,
 } from "react";
 
-const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+const TURNSTILE_SITE_KEY = "0x4AAAAAACfm-CiNXBHa4jmt";
 
 export interface ScanStatusInfo {
   phase: "idle" | "searching" | "scanning" | "ranking" | "done";
@@ -54,6 +54,7 @@ export function SharedPageProvider({
 }) {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReady, setTurnstileReady] = useState(false);
+  const [showChallenge, setShowChallenge] = useState(false);
   const [scanStatus, setScanStatus] = useState<ScanStatusInfo>({
     phase: "idle",
   });
@@ -66,11 +67,18 @@ export function SharedPageProvider({
     if (turnstileRef.current && (window as any).turnstile) {
       (window as any).turnstile.render(turnstileRef.current, {
         sitekey: TURNSTILE_SITE_KEY,
+        appearance: "interaction-only",
         callback: (token: string) => {
           setTurnstileToken(token);
           setTurnstileReady(true);
+          setShowChallenge(false);
         },
-        size: "invisible",
+        "before-interactive-callback": () => {
+          setShowChallenge(true);
+        },
+        "after-interactive-callback": () => {
+          setShowChallenge(false);
+        },
       });
     }
   }, []);
@@ -111,8 +119,33 @@ export function SharedPageProvider({
         setGeoLocation,
       }}
     >
-      <div ref={turnstileRef} className="hidden" />
       {children}
+
+      {/* Backdrop — only when Cloudflare needs interaction */}
+      {showChallenge && (
+        <div className="fixed inset-0 z-[99] bg-black/40 backdrop-blur-sm" />
+      )}
+
+      {/* Turnstile container — always in DOM. Challenge modal wraps it when needed. */}
+      <div
+        className={
+          showChallenge
+            ? "fixed z-[100] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-3"
+            : ""
+        }
+      >
+        {showChallenge && (
+          <>
+            <p className="text-sm font-semibold text-on-surface">
+              Quick security check
+            </p>
+            <p className="text-xs text-on-surface-variant text-center">
+              Please complete the verification to continue
+            </p>
+          </>
+        )}
+        <div ref={turnstileRef} />
+      </div>
     </SharedPageContext.Provider>
   );
 }

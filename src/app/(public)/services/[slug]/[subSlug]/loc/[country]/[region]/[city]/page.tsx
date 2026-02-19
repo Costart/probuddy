@@ -1,8 +1,5 @@
 import { notFound } from "next/navigation";
-import {
-  getLocationPageForSubServiceRoute,
-  createLocationPage,
-} from "@/lib/db/queries/locations";
+import { getLocationPageForSubServiceRoute } from "@/lib/db/queries/locations";
 import { getSubServiceBySlug } from "@/lib/db/queries/sub-services";
 import { getPageSections } from "@/lib/db/queries/sections";
 import { getGeoData } from "@/lib/geo";
@@ -67,7 +64,7 @@ export default async function SubServiceLocationPage({
 }: Props) {
   const { slug, subSlug, country, region, city } = await params;
   const { zip: urlZip } = await searchParams;
-  let data = await getLocationPageForSubServiceRoute(
+  const data = await getLocationPageForSubServiceRoute(
     slug,
     subSlug,
     country,
@@ -75,56 +72,8 @@ export default async function SubServiceLocationPage({
     city,
   );
 
-  // Auto-create location page if it doesn't exist
-  if (!data) {
-    const sub = await getSubServiceBySlug(slug, subSlug);
-    if (!sub) notFound();
-
-    const cityDisplay = unslugify(city);
-    const regionDisplay = unslugify(region);
-    const countryDisplay =
-      country === "us" ? "United States" : unslugify(country);
-
-    // Geocode for lat/lon
-    let lat: string | undefined;
-    let lon: string | undefined;
-    try {
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${cityDisplay}, ${regionDisplay}, ${countryDisplay}`)}&format=json&limit=1`,
-        { headers: { "User-Agent": "ProBuddy/1.0" } },
-      );
-      const geoData = await geoRes.json();
-      if (geoData.length > 0) {
-        lat = geoData[0].lat;
-        lon = geoData[0].lon;
-      }
-    } catch {
-      // Continue without coordinates
-    }
-
-    await createLocationPage({
-      pageType: "sub_service",
-      pageId: sub.id,
-      country,
-      region,
-      city,
-      cityDisplay,
-      regionDisplay,
-      countryDisplay,
-      blurb: `Find trusted ${sub.name.toLowerCase()} professionals in ${cityDisplay}, ${regionDisplay}. Connect with local pros who know your area.`,
-      lat,
-      lon,
-    });
-
-    data = await getLocationPageForSubServiceRoute(
-      slug,
-      subSlug,
-      country,
-      region,
-      city,
-    );
-    if (!data) notFound();
-  }
+  // Location pages are only created via the zip code flow (/api/locations/generate)
+  if (!data) notFound();
 
   const geo = await getGeoData();
   const {
@@ -133,6 +82,7 @@ export default async function SubServiceLocationPage({
     subServicePriceLow,
     subServicePriceHigh,
     subServiceDuration,
+    categoryId,
     categoryName,
     categorySlug,
   } = data;
@@ -267,6 +217,7 @@ export default async function SubServiceLocationPage({
             postalCode={urlZip || geo.postalCode}
             city={location.cityDisplay}
             categorySlug={slug}
+            categoryId={categoryId}
             locationLat={location.lat}
             locationLon={location.lon}
           />
