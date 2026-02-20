@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { useSharedPage } from "@/components/SharedPageContext";
@@ -155,6 +156,13 @@ export function ProsList({
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [noResults, setNoResults] = useState(false);
   const navigatingRef = useRef(false);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  // Find the portal target in the hero before paint to avoid layout shift
+  useLayoutEffect(() => {
+    const el = document.getElementById("zip-badge-portal");
+    if (el) setPortalTarget(el);
+  }, []);
 
   // Reverse-geocode location lat/lon to get a US zip when visitor has no US zip
   useEffect(() => {
@@ -297,6 +305,7 @@ export function ProsList({
   }, [phase, scanningIndex, pros, setScanStatus]);
 
   // Scan sequence: advance through cards one at a time with gaps
+  // Always complete all cards before transitioning to ranking
   useEffect(() => {
     if (phase !== "scanning" || scanningIndex < 0) return;
 
@@ -311,9 +320,6 @@ export function ProsList({
     // Wait for scan duration + gap, then advance
     scanTimer.current = setTimeout(() => {
       setScanningIndex((prev) => prev + 1);
-      if (aiReadyRef.current && scanningIndex >= scanCount - 1) {
-        setPhase("ranking");
-      }
     }, SCAN_DURATION_MS + SCAN_GAP_MS);
 
     return () => {
@@ -417,6 +423,8 @@ export function ProsList({
 
     async function fetchAiRanking(businesses: Business[], zip: string) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
         const res = await fetch("/api/pros/rank", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -439,8 +447,11 @@ export function ProsList({
             categorySlug,
             turnstileToken,
           }),
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
         const data = await res.json();
+        console.log("[ProsList] Rank API response:", res.status, JSON.stringify(data));
         if (data?.rankings) {
           setAiRanking(data);
           const rankPosition = new Map<string, number>();
@@ -458,8 +469,8 @@ export function ProsList({
             return sorted;
           });
         }
-      } catch {
-        // AI failed silently
+      } catch (err) {
+        console.error("[ProsList] AI ranking failed:", err);
       } finally {
         setAiDone(true);
         aiReadyRef.current = true;
@@ -572,13 +583,13 @@ export function ProsList({
   if (loading) {
     return (
       <div id="pros-list" className="space-y-6">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h2 className="font-display text-2xl font-bold text-on-surface">
-            Finding Top Pros{displayCity ? ` in ${displayCity}` : " Near You"}
-            ...
-          </h2>
-          {zipBadge}
-        </div>
+        {portalTarget && createPortal(
+          <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+            <span>Showing results for</span>
+            {zipBadge}
+          </div>,
+          portalTarget,
+        )}
         <div className="flex items-center gap-3 rounded-xl bg-primary/5 border border-primary/15 px-4 py-3">
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
             <svg
@@ -619,9 +630,6 @@ export function ProsList({
   if (!activeZip || noResults || (!loading && pros.length === 0)) {
     return (
       <div id="pros-list" className="space-y-5">
-        <h2 className="font-display text-2xl font-bold text-on-surface">
-          {serviceName} Pros{displayCity ? ` in ${displayCity}` : ""}
-        </h2>
         <div className="rounded-xl bg-gray-50 border border-gray-200 px-6 py-8 text-center max-w-lg mx-auto">
           <svg
             className="w-10 h-10 text-gray-300 mx-auto mb-3"
@@ -769,14 +777,14 @@ export function ProsList({
         }
       `}</style>
 
-      {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h2 className="font-display text-2xl font-bold text-on-surface">
-          Top {serviceName} Pros
-          {displayCity ? ` in ${displayCity}` : " Near You"}
-        </h2>
-        {zipBadge}
-      </div>
+      {/* Zip badge — portaled into hero */}
+      {portalTarget && createPortal(
+        <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+          <span>Showing results for</span>
+          {zipBadge}
+        </div>,
+        portalTarget,
+      )}
 
       {/* AI Status Bar — Scanning phase */}
       {isScanning && (

@@ -111,11 +111,14 @@ export default async function LocationPage({ params, searchParams }: Props) {
         <HeroSection>
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 md:gap-8">
             <div className="flex-1 min-w-0">
-              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
-                <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
-                  {categoryName} Services
-                  <CityName fallback={location.cityDisplay} />
-                </h1>
+              <div className="inline-block">
+                <div className="bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
+                  <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
+                    {categoryName} Services
+                    <CityName fallback={location.cityDisplay} />
+                  </h1>
+                </div>
+                <div id="zip-badge-portal" className="mt-1.5 flex justify-end" />
               </div>
             </div>
             <div className="hidden lg:block w-full lg:w-[360px] flex-shrink-0">

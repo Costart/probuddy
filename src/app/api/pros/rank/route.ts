@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       };
 
     if (!businesses?.length || !query) {
-      return NextResponse.json(null);
+      return NextResponse.json({ _debug: "missing_input", businesses: !!businesses?.length, query: !!query });
     }
 
     let env: any;
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     // Don't re-verify server-side: tokens are single-use and already
     // verified by /api/pros/search. Just check the client sent one.
     if (env.TURNSTILE_SECRET_KEY && !turnstileToken) {
-      return NextResponse.json(null);
+      return NextResponse.json({ _debug: "no_turnstile" });
     }
 
     // --- Check KV cache for existing ranking ---
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     const apiKey = env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(null);
+      return NextResponse.json({ _debug: "no_api_key" });
     }
 
     // --- Daily call counter (safety cap: ~$10/day max) ---
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         const count = parseInt((await cache.get(counterKey)) || "0", 10);
         if (count >= DAILY_CAP) {
           console.log("[Rank] Daily cap reached:", count);
-          return NextResponse.json(null);
+          return NextResponse.json({ _debug: "daily_cap", count });
         }
       } catch {
         // KV read failed — proceed anyway
@@ -140,6 +140,8 @@ Respond with JSON:
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -151,7 +153,9 @@ Respond with JSON:
           responseMimeType: "application/json",
         },
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -160,7 +164,7 @@ Respond with JSON:
         res.status,
         errText.substring(0, 200),
       );
-      return NextResponse.json(null);
+      return NextResponse.json({ _debug: "gemini_http_error", status: res.status });
     }
 
     const geminiData = await res.json();
@@ -168,15 +172,39 @@ Respond with JSON:
 
     if (!text) {
       console.log("[Rank] No text in response");
-      return NextResponse.json(null);
+      return NextResponse.json({ _debug: "no_gemini_text" });
     }
 
-    console.log("[Rank] Gemini response:", text.substring(0, 300));
+    console.log("[Rank] Gemini response:", text.substring(0, 500));
 
-    const parsed = JSON.parse(text);
+    // Parse Gemini JSON robustly — handle trailing commas, markdown fences,
+    // unterminated strings, and other common Gemini issues
+    let parsed: { rankings?: { id: string; reason?: string }[] } | null = null;
 
-    if (!parsed.rankings || !Array.isArray(parsed.rankings)) {
-      return NextResponse.json(null);
+    // Step 1: Try direct parse after cleaning
+    const cleaned = text
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .replace(/,\s*([}\]])/g, "$1");
+
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // Step 2: Extract individual ranking objects via regex
+      console.log("[Rank] Direct parse failed, trying regex extraction");
+      const idReasonPairs: { id: string; reason: string }[] = [];
+      const entryRegex = /"id"\s*:\s*"(p\d+)"\s*,\s*"reason"\s*:\s*"([^"]*)/g;
+      let match;
+      while ((match = entryRegex.exec(text)) !== null) {
+        idReasonPairs.push({ id: match[1], reason: match[2] });
+      }
+      if (idReasonPairs.length > 0) {
+        parsed = { rankings: idReasonPairs };
+      }
+    }
+
+    if (!parsed?.rankings || !Array.isArray(parsed.rankings)) {
+      return NextResponse.json({ _debug: "bad_parse", textPreview: text.substring(0, 200) });
     }
 
     // Map short IDs back to real Thumbtack IDs
@@ -216,6 +244,6 @@ Respond with JSON:
     return NextResponse.json(result);
   } catch (error) {
     console.error("[Rank] Error:", error);
-    return NextResponse.json(null);
+    return NextResponse.json({ _debug: "exception", message: String(error) });
   }
 }

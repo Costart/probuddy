@@ -7,7 +7,7 @@ export function HeroSection({ children }: { children: React.ReactNode }) {
   const { geoLocation } = useSharedPage();
 
   return (
-    <section className="relative overflow-hidden bg-gray-100 h-auto min-h-[220px] md:h-[340px]">
+    <section className="relative overflow-hidden bg-gray-100 h-auto min-h-[220px] md:min-h-[420px]">
       {geoLocation.lat && geoLocation.lon && (
         <MapBackground lat={geoLocation.lat} lon={geoLocation.lon} />
       )}

@@ -168,11 +168,14 @@ export default async function SubServicePage({ params }: Props) {
               <p className="text-sm font-medium text-accent uppercase tracking-wider mb-2">
                 {data.category.name}
               </p>
-              <div className="inline-block bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
-                <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
-                  {data.name}
-                  <CityName fallback={cityDisplay ?? undefined} />
-                </h1>
+              <div className="inline-block">
+                <div className="bg-white/75 backdrop-blur-sm rounded-2xl px-5 py-3 md:px-8 md:py-5 shadow-lg">
+                  <h1 className="font-display text-2xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-on-surface">
+                    {data.name}
+                    <CityName fallback={cityDisplay ?? undefined} />
+                  </h1>
+                </div>
+                <div id="zip-badge-portal" className="mt-1.5 flex justify-end" />
               </div>
               {data.description && (
                 <p className="text-base text-on-surface-variant mt-3 max-w-2xl line-clamp-2">
