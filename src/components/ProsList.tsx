@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { useSharedPage } from "@/components/SharedPageContext";
 import { clarityEvent } from "@/lib/clarity";
+import { appendTrackingParams } from "@/lib/tracking";
 
 function slugify(text: string): string {
   return text
@@ -1159,7 +1160,7 @@ export function ProsList({
                   <button
                     onClick={() => {
                       clarityEvent("quote_flow_started");
-                      setIframeUrl(pro.requestFlowUrl);
+                      setIframeUrl(appendTrackingParams(pro.requestFlowUrl!));
                     }}
                     className="block w-full text-center text-sm font-semibold py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                   >
@@ -1169,7 +1170,7 @@ export function ProsList({
                   <button
                     onClick={() => {
                       clarityEvent("pro_profile_viewed");
-                      setIframeUrl(pro.servicePageUrl);
+                      setIframeUrl(appendTrackingParams(pro.servicePageUrl!));
                     }}
                     className="block w-full text-center text-sm font-semibold py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                   >

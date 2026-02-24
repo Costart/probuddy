@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { ClarityProvider } from "@/components/ClarityProvider";
+import { TrackingCapture } from "@/components/TrackingCapture";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -28,6 +29,7 @@ export default function RootLayout({
             projectId={process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID}
           />
         )}
+        <TrackingCapture />
         {children}
       </body>
     </html>
