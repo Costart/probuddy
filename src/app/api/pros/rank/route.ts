@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { appendApiLog } from "@/lib/api-log";
 
 interface BusinessInput {
   id: string;
@@ -17,13 +18,14 @@ interface BusinessInput {
 
 export async function POST(request: Request) {
   try {
-    const { businesses, query, zipCode, categorySlug, turnstileToken } =
+    const { businesses, query, zipCode, categorySlug, turnstileToken, freePass } =
       (await request.json()) as {
         businesses: BusinessInput[];
         query: string;
         zipCode: string;
         categorySlug?: string;
         turnstileToken?: string;
+        freePass?: boolean;
       };
 
     if (!businesses?.length || !query) {
@@ -38,15 +40,32 @@ export async function POST(request: Request) {
       env = process.env;
     }
 
-    // Require Turnstile token presence — bots don't get AI ranking.
-    // Don't re-verify server-side: tokens are single-use and already
-    // verified by /api/pros/search. Just check the client sent one.
-    if (env.TURNSTILE_SECRET_KEY && !turnstileToken) {
+    const clientIp =
+      request.headers.get("cf-connecting-ip") ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "unknown";
+
+    // IP rate limit — first AI ranking per IP per 30 min is free
+    let usedFreeRankPass = false;
+    const rankRateLimitKey = `ratelimit:rank:${clientIp}`;
+    const cache = env.CACHE;
+
+    if (freePass && cache && clientIp !== "unknown") {
+      try {
+        const used = await cache.get(rankRateLimitKey);
+        if (!used) {
+          usedFreeRankPass = true;
+          console.log("[Rank] IP free pass granted:", clientIp);
+        }
+      } catch {}
+    }
+
+    // Require Turnstile token presence if no free pass
+    if (!usedFreeRankPass && env.TURNSTILE_SECRET_KEY && !turnstileToken) {
       return NextResponse.json({ _debug: "no_turnstile" });
     }
 
     // --- Check KV cache for existing ranking ---
-    const cache = env.CACHE;
     const cacheKey = categorySlug
       ? `rank:${zipCode}:${categorySlug}:${query}`
       : null;
@@ -56,6 +75,15 @@ export async function POST(request: Request) {
         const cached = await cache.get(cacheKey, "json");
         if (cached) {
           console.log("[Rank] Cache hit:", cacheKey);
+          await appendApiLog(cache, {
+            ts: new Date().toISOString(),
+            endpoint: "rank",
+            ms: 0,
+            status: "cache",
+            detail: "KV hit",
+            ip: clientIp,
+            zip: zipCode,
+          });
           return NextResponse.json(cached);
         }
       } catch {
@@ -140,6 +168,7 @@ Respond with JSON:
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
+    const geminiStart = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     const res = await fetch(url, {
@@ -156,19 +185,32 @@ Respond with JSON:
       signal: controller.signal,
     });
     clearTimeout(timeout);
+    const geminiMs = Date.now() - geminiStart;
 
     if (!res.ok) {
       const errText = await res.text();
       console.error(
-        "[Rank] Gemini API error:",
+        "[Rank] Gemini API error in",
+        geminiMs,
+        "ms:",
         res.status,
         errText.substring(0, 200),
       );
+      await appendApiLog(cache, {
+        ts: new Date().toISOString(),
+        endpoint: "rank",
+        ms: geminiMs,
+        status: "error",
+        detail: `HTTP ${res.status}`,
+        ip: clientIp,
+        zip: zipCode,
+      });
       return NextResponse.json({ _debug: "gemini_http_error", status: res.status });
     }
 
     const geminiData = await res.json();
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const usage = geminiData?.usageMetadata;
 
     if (!text) {
       console.log("[Rank] No text in response");
@@ -176,6 +218,9 @@ Respond with JSON:
     }
 
     console.log("[Rank] Gemini response:", text.substring(0, 500));
+    if (usage) {
+      console.log("[Rank] Tokens — prompt:", usage.promptTokenCount, "output:", usage.candidatesTokenCount, "thinking:", usage.thoughtsTokenCount, "total:", usage.totalTokenCount);
+    }
 
     // Parse Gemini JSON robustly — handle trailing commas, markdown fences,
     // unterminated strings, and other common Gemini issues
@@ -237,10 +282,26 @@ Respond with JSON:
         .catch(() => {});
     }
 
+    // Record IP rank rate limit (30 min TTL, fire-and-forget)
+    if (usedFreeRankPass && cache) {
+      cache.put(rankRateLimitKey, "1", { expirationTtl: 1800 }).catch(() => {});
+    }
+
     console.log(
-      "[Rank] Success, top 3:",
+      "[Rank] Success in",
+      geminiMs,
+      "ms, top 3:",
       rankings.slice(0, 3).map((r: any) => r.id),
     );
+    await appendApiLog(cache, {
+      ts: new Date().toISOString(),
+      endpoint: "rank",
+      ms: geminiMs,
+      status: "ok",
+      detail: `${rankings.length} ranked` + (usage ? ` | ${usage.totalTokenCount}tok (${usage.thoughtsTokenCount || 0} thinking)` : ""),
+      ip: clientIp,
+      zip: zipCode,
+    });
     return NextResponse.json(result);
   } catch (error) {
     console.error("[Rank] Error:", error);

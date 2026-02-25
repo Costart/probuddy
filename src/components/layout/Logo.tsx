@@ -13,28 +13,34 @@ export function Logo({ className = "", size = "md" }: LogoProps) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <svg
-        className={sizes[size]}
+        className={`${sizes[size]} aspect-square`}
         viewBox="0 0 40 40"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {/* Shield shape */}
+        {/* Rounded square background */}
+        <rect width="40" height="40" rx="10" className="fill-primary" />
+
+        {/* Wrench — proper spanner: handle + open jaw */}
+        <g transform="translate(20,20) rotate(-45) translate(-20,-20)">
+          {/* Handle */}
+          <rect x="10" y="18" width="14" height="4" rx="1.5" fill="white" />
+          {/* Head / jaw */}
+          <path
+            d="M24 15C24 15 26 15 28 17C30 19 30.5 21.5 29.5 23.5L27 21L25 23L27.5 25.5C25.5 26.5 23 26 21 24C19 22 19 19 19 19L24 15Z"
+            fill="white"
+          />
+        </g>
+
+        {/* AI sparkle — 4-point star, top-right */}
         <path
-          d="M20 2L4 10V20C4 30.5 11 36.5 20 38C29 36.5 36 30.5 36 20V10L20 2Z"
-          className="fill-primary"
+          d="M31 6L31.9 9.6L35.5 10.5L31.9 11.4L31 15L30.1 11.4L26.5 10.5L30.1 9.6L31 6Z"
+          className="fill-accent"
         />
-        {/* Wrench/tool icon inside */}
+        {/* Small sparkle */}
         <path
-          d="M25.5 14.5C25.5 14.5 24.2 13.2 22 13C19.8 13.2 18.5 14.5 18.5 14.5L14 19L16 21L19.5 17.5V28H22.5V17.5L26 21L28 19L25.5 14.5Z"
-          fill="white"
-        />
-        {/* Checkmark */}
-        <path
-          d="M15 24L18 27L25 20"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d="M34 16L34.4 17.4L35.8 17.8L34.4 18.2L34 19.6L33.6 18.2L32.2 17.8L33.6 17.4L34 16Z"
+          className="fill-accent"
           opacity="0.6"
         />
       </svg>

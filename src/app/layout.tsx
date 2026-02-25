@@ -21,6 +21,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://challenges.cloudflare.com" />
+      </head>
       <body
         className={`${inter.variable} ${jakarta.variable} font-sans min-h-screen bg-surface antialiased`}
       >

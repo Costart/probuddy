@@ -17,17 +17,17 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-const SCAN_DURATION_MS = 2000;
-const SCAN_GAP_MS = 400;
+const SCAN_DURATION_MS = 1400;
+const SCAN_GAP_MS = 200;
 const SCAN_CARD_COUNT = 3;
-const RANKING_HOLD_MS = 1200;
+const RANKING_HOLD_MS = 800;
 
 const SCAN_PHASES = [
   "Reading profile...",
   "Checking reviews...",
   "Evaluating experience...",
 ];
-const SCAN_PHASE_INTERVAL = 650;
+const SCAN_PHASE_INTERVAL = 450;
 
 interface Business {
   id: string;
@@ -127,6 +127,79 @@ function ThumbstackModal({
         />
       </div>
     </div>
+  );
+}
+
+function SkeletonProCard({
+  serviceName,
+  city,
+  delay = 0,
+}: {
+  serviceName: string;
+  city?: string;
+  delay?: number;
+}) {
+  return (
+    <Card
+      className="flex flex-col skeleton-card relative overflow-hidden"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      {/* Shimmer sweep overlay */}
+      <div
+        className="skeleton-shimmer"
+        style={{ animationDelay: `${delay}ms` }}
+      />
+      <div className="p-6 flex flex-col items-center text-center flex-1">
+        {/* Avatar */}
+        <div className="w-20 h-20 rounded-full bg-primary/8 mb-4 flex items-center justify-center">
+          <svg className="w-8 h-8 text-primary/20" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+          </svg>
+        </div>
+        {/* Service name */}
+        <p className="text-sm font-semibold text-on-surface/40 mb-1">
+          {serviceName}
+        </p>
+        <p className="text-xs text-on-surface-variant/40 mb-3">
+          {city ? `in ${city}` : "near you"}
+        </p>
+        {/* Badges */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-5 w-16 bg-primary/5 rounded-full" />
+          <div className="h-5 w-20 bg-primary/5 rounded-full" />
+        </div>
+        {/* Intro lines */}
+        <div className="w-full space-y-2 mb-3">
+          <div className="h-3 bg-gray-100 rounded w-full" />
+          <div className="h-3 bg-gray-100 rounded w-4/5" />
+        </div>
+        {/* Detail rows */}
+        <div className="w-full space-y-2 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gray-100 rounded" />
+            <div className="h-3 bg-gray-100 rounded w-28" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gray-100 rounded" />
+            <div className="h-3 bg-gray-100 rounded w-32" />
+          </div>
+        </div>
+        {/* Star rating placeholder */}
+        <div className="w-full border-t border-gray-100 pt-4 mb-3">
+          <div className="flex items-center justify-center gap-0.5">
+            {[...Array(5)].map((_, i) => (
+              <svg key={i} className="w-4 h-4 text-gray-200" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* CTA button */}
+      <div className="p-6 pt-0 mt-auto">
+        <div className="h-11 bg-primary/8 rounded-lg w-full" />
+      </div>
+    </Card>
   );
 }
 
@@ -305,14 +378,16 @@ export function ProsList({
     };
   }, [phase, scanningIndex, pros, setScanStatus]);
 
-  // Scan sequence: advance through cards one at a time with gaps
-  // Always complete all cards before transitioning to ranking
+  // Scan sequence: advance through cards one at a time (skipped early if AI finishes)
   useEffect(() => {
     if (phase !== "scanning" || scanningIndex < 0) return;
+
+    console.log("[ProsList] scan tick", { scanningIndex, scanCount, aiDone, aiReady: aiReadyRef.current });
 
     if (scanningIndex >= scanCount) {
       // All cards scanned — transition to ranking if AI ready
       if (aiReadyRef.current) {
+        console.log("[ProsList] all scanned + AI ready → ranking");
         setPhase("ranking");
       }
       return;
@@ -332,12 +407,14 @@ export function ProsList({
   useEffect(() => {
     if (phase !== "ranking") return;
 
+    console.log("[ProsList] ranking phase", { aiReady: aiReadyRef.current, aiDone, rankings: aiRanking?.rankings?.length });
     setScanStatus({ phase: "ranking", totalPros: pros.length });
 
     // If AI isn't ready yet, wait for it
     if (!aiReadyRef.current) return;
 
     const timer = setTimeout(() => {
+      console.log("[ProsList] ranking hold done → done phase", { rankings: aiRanking?.rankings?.length });
       setPhase("done");
       setScanStatus({
         phase: "done",
@@ -349,16 +426,30 @@ export function ProsList({
     return () => clearTimeout(timer);
   }, [phase, aiDone, pros.length, setScanStatus, aiRanking]);
 
-  // When AI arrives during scanning phase and scans are done
+  // When AI arrives during scanning phase — skip remaining scans
   useEffect(() => {
-    if (aiDone && phase === "scanning" && scanningIndex >= scanCount) {
+    if (aiDone && phase === "scanning") {
+      console.log("[ProsList] AI done during scanning → fast-forward to ranking", { scanningIndex, scanCount });
+      setScanningIndex(scanCount);
       setPhase("ranking");
     }
-  }, [aiDone, phase, scanningIndex, scanCount]);
+  }, [aiDone, phase, scanCount]);
 
-  // Fetch pros + AI ranking in parallel
+  // Track latest turnstile token in a ref so async functions can read it
+  const turnstileTokenRef = useRef(turnstileToken);
+  const turnstileWaitersRef = useRef<((token: string) => void)[]>([]);
   useEffect(() => {
-    if (!activeZip || !turnstileToken || hasFetched.current || navigatingRef.current) return;
+    turnstileTokenRef.current = turnstileToken;
+    if (turnstileToken && turnstileWaitersRef.current.length > 0) {
+      // Resolve all pending waiters
+      turnstileWaitersRef.current.forEach((resolve) => resolve(turnstileToken));
+      turnstileWaitersRef.current = [];
+    }
+  }, [turnstileToken]);
+
+  // Fetch pros + AI ranking — cache-first (no Turnstile needed for cached results)
+  useEffect(() => {
+    if (!activeZip || hasFetched.current || navigatingRef.current) return;
 
     if (!/^\d{5}$/.test(activeZip)) {
       setLoading(false);
@@ -372,8 +463,104 @@ export function ProsList({
     setScanStatus({ phase: "searching", serviceName });
     clarityEvent("pro_search");
 
+    function waitForTurnstile(): Promise<string> {
+      // Check ref for latest value (closure may be stale)
+      if (turnstileTokenRef.current) return Promise.resolve(turnstileTokenRef.current);
+      return new Promise((resolve, reject) => {
+        turnstileWaitersRef.current.push(resolve);
+        setTimeout(() => reject(new Error("Turnstile timeout")), 10000);
+      });
+    }
+
+    function handleProsLoaded(businesses: Business[], zip: string, source: string, freePass?: boolean) {
+      console.log(`[ProsList] handleProsLoaded (${source})`, { count: businesses.length, zip, freePass });
+      setPros(businesses);
+      setLoading(false);
+
+      if (businesses.length === 0) {
+        setNoResults(true);
+        setScanStatus({ phase: "idle" });
+        return;
+      }
+
+      setScanningIndex(0);
+      setPhase("scanning");
+
+      if (businesses.length > 1) {
+        console.log("[ProsList] starting AI ranking...");
+        fetchAiRanking(businesses, zip, freePass);
+      } else {
+        setAiDone(true);
+        aiReadyRef.current = true;
+      }
+    }
+
     async function fetchPros() {
       try {
+        // Phase 1: Try cache-only (no Turnstile needed, fires immediately)
+        console.log("[ProsList] cache probe starting...");
+        const cacheController = new AbortController();
+        const cacheTimeout = setTimeout(() => cacheController.abort(), 5000);
+        const cacheRes = await fetch("/api/pros/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query,
+            zipCode,
+            categorySlug,
+            limit: 30,
+            cacheOnly: true,
+          }),
+          signal: cacheController.signal,
+        });
+        clearTimeout(cacheTimeout);
+
+        if (cacheRes.ok) {
+          const cacheData = await cacheRes.json();
+          console.log("[ProsList] cache probe result", { cached: cacheData.cached !== false, businesses: cacheData.businesses?.length, turnstileRequired: cacheData.turnstileRequired });
+          if (cacheData.businesses?.length > 0 && cacheData.cached !== false) {
+            // Cache hit — use immediately, skip Turnstile wait
+            handleProsLoaded(cacheData.businesses, zipCode, "cache-hit");
+            return;
+          }
+
+          // Phase 2: Cache miss — check if IP gets a free pass
+          if (cacheData.turnstileRequired === false) {
+            console.log("[ProsList] IP free pass — skipping Turnstile");
+            const fpController = new AbortController();
+            const fpTimeout = setTimeout(() => fpController.abort(), 15000);
+            const fpRes = await fetch("/api/pros/search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query,
+                zipCode,
+                categorySlug,
+                limit: 30,
+              }),
+              signal: fpController.signal,
+            });
+            clearTimeout(fpTimeout);
+            if (fpRes.ok) {
+              const fpData = await fpRes.json();
+              const businesses: Business[] = fpData.businesses || [];
+              console.log("[ProsList] free pass fetch done", { count: businesses.length, freePass: fpData.freePass });
+              handleProsLoaded(businesses, zipCode, "free-pass", fpData.freePass);
+              return;
+            }
+            // Free pass failed (race condition?) — fall through to Turnstile
+          }
+        }
+      } catch (err) {
+        console.log("[ProsList] cache probe failed", err);
+        // Cache probe failed — fall through to full fetch
+      }
+
+      // Phase 3: Turnstile required — wait then full fetch
+      try {
+        console.log("[ProsList] waiting for Turnstile...", { hasToken: !!turnstileToken });
+        const token = await waitForTurnstile();
+        console.log("[ProsList] Turnstile ready — fetching pros...");
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
         const res = await fetch("/api/pros/search", {
@@ -382,7 +569,7 @@ export function ProsList({
           body: JSON.stringify({
             query,
             zipCode,
-            turnstileToken,
+            turnstileToken: token,
             categorySlug,
             limit: 30,
           }),
@@ -392,24 +579,8 @@ export function ProsList({
         if (res.ok) {
           const data = await res.json();
           const businesses: Business[] = data.businesses || [];
-          setPros(businesses);
-          setLoading(false);
-
-          if (businesses.length === 0) {
-            setNoResults(true);
-            setScanStatus({ phase: "idle" });
-            return;
-          }
-
-          setScanningIndex(0);
-          setPhase("scanning");
-
-          if (businesses.length > 1) {
-            fetchAiRanking(businesses, zipCode);
-          } else {
-            setAiDone(true);
-            aiReadyRef.current = true;
-          }
+          console.log("[ProsList] full fetch done", { count: businesses.length });
+          handleProsLoaded(businesses, zipCode, "full-fetch");
         } else {
           setLoading(false);
           setNoResults(true);
@@ -422,8 +593,17 @@ export function ProsList({
       }
     }
 
-    async function fetchAiRanking(businesses: Business[], zip: string) {
+    async function fetchAiRanking(businesses: Business[], zip: string, freePass?: boolean) {
       try {
+        let token: string | undefined;
+        if (freePass) {
+          console.log("[ProsList] AI ranking: using free pass, skipping Turnstile wait");
+          token = turnstileTokenRef.current || undefined;
+        } else {
+          console.log("[ProsList] AI ranking: waiting for Turnstile...", { hasToken: !!turnstileToken });
+          token = await waitForTurnstile();
+        }
+        console.log("[ProsList] AI ranking: calling /api/pros/rank...");
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 20000);
         const res = await fetch("/api/pros/rank", {
@@ -446,7 +626,8 @@ export function ProsList({
             query,
             zipCode: zip,
             categorySlug,
-            turnstileToken,
+            turnstileToken: token,
+            freePass: !!freePass,
           }),
           signal: controller.signal,
         });
@@ -473,6 +654,7 @@ export function ProsList({
       } catch (err) {
         console.error("[ProsList] AI ranking failed:", err);
       } finally {
+        console.log("[ProsList] AI ranking complete → setAiDone(true)", { phase });
         setAiDone(true);
         aiReadyRef.current = true;
       }
@@ -580,7 +762,7 @@ export function ProsList({
     });
   }
 
-  // Loading — show minimal searching state (AI buddy card shows the detail)
+  // Loading — show skeleton cards so users see content is coming
   if (loading) {
     return (
       <div id="pros-list" className="space-y-6">
@@ -622,6 +804,11 @@ export function ProsList({
               Checking availability and reviews
             </p>
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <SkeletonProCard serviceName={serviceName} city={displayCity || undefined} delay={0} />
+          <SkeletonProCard serviceName={serviceName} city={displayCity || undefined} delay={150} />
+          <SkeletonProCard serviceName={serviceName} city={displayCity || undefined} delay={300} />
         </div>
       </div>
     );
@@ -692,10 +879,10 @@ export function ProsList({
   const isScanning = phase === "scanning" && scanningIndex >= 0;
   const isRanking = phase === "ranking";
 
-  // Visible cards
+  // Visible cards — show all scan cards immediately so grid is full
   const visiblePros = isDone
     ? pros
-    : pros.slice(0, Math.max(0, scanningIndex + 1));
+    : pros.slice(0, Math.max(0, Math.max(scanningIndex + 1, scanCount)));
 
   return (
     <div id="pros-list" className="space-y-6">
@@ -732,8 +919,44 @@ export function ProsList({
           0%, 100% { opacity: 0.6; }
           50% { opacity: 1; }
         }
+        @keyframes skeletonFadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmerSweep {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .skeleton-card {
+          animation: skeletonFadeIn 0.4s ease-out both;
+        }
+        .skeleton-shimmer {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .skeleton-shimmer::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(79, 70, 229, 0.04) 30%,
+            rgba(79, 70, 229, 0.08) 50%,
+            rgba(79, 70, 229, 0.04) 70%,
+            transparent 100%
+          );
+          animation: shimmerSweep 1.8s ease-in-out infinite;
+        }
         .card-slide-in {
           animation: cardSlideIn 0.35s ease-out both;
+          transition: opacity 0.3s ease-out;
         }
         .card-scanning {
           position: relative;
@@ -756,7 +979,7 @@ export function ProsList({
           );
           box-shadow: 0 0 12px 4px rgba(79, 70, 229, 0.4), 0 0 24px 8px rgba(79, 70, 229, 0.15);
           border-radius: 2px;
-          animation: scanLine 1.5s ease-in-out forwards;
+          animation: scanLine 1.1s ease-in-out forwards;
           animation-delay: 0.35s;
           z-index: 10;
           pointer-events: none;
@@ -886,6 +1109,7 @@ export function ProsList({
           const isCurrentlyScan =
             !isDone && phase === "scanning" && index === scanningIndex;
           const isPlaced = !isDone && index < scanningIndex;
+          const isWaiting = !isDone && phase === "scanning" && index > scanningIndex && index < scanCount;
           const isBulkRevealed = isDone && index >= scanCount;
 
           let cardClass = "flex flex-col";
@@ -893,6 +1117,8 @@ export function ProsList({
             cardClass += " card-slide-in card-scanning";
           } else if (isPlaced) {
             cardClass += " card-settled";
+          } else if (isWaiting) {
+            cardClass += " card-slide-in opacity-50";
           } else if (isBulkRevealed) {
             cardClass += " card-bulk-reveal";
           }
@@ -906,10 +1132,10 @@ export function ProsList({
               className={cardClass}
               style={
                 isBulkRevealed
-                  ? {
-                      animationDelay: `${(index - scanCount) * 100}ms`,
-                    }
-                  : undefined
+                  ? { animationDelay: `${(index - scanCount) * 100}ms` }
+                  : isWaiting
+                    ? { animationDelay: `${index * 100}ms` }
+                    : undefined
               }
             >
               {/* Scan overlay with cycling text */}

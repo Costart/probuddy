@@ -4,10 +4,11 @@ import { eq, and } from "drizzle-orm";
 import { getAccessToken, searchThumbtack } from "@/lib/thumbtack";
 import { getDb } from "@/lib/db";
 import { searchResults } from "@/lib/db/schema";
+import { appendApiLog } from "@/lib/api-log";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { query, zipCode, turnstileToken, categorySlug, limit = 10 } = body;
+  const { query, zipCode, turnstileToken, categorySlug, limit = 10, cacheOnly } = body;
 
   if (!query || !zipCode || !/^\d{5}$/.test(zipCode)) {
     return NextResponse.json({ businesses: [], metadata: null });
@@ -21,6 +22,11 @@ export async function POST(request: Request) {
     env = process.env;
   }
 
+  const clientIp =
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+
   // --- Layer 1: Check KV cache (no Turnstile needed for cached results) ---
   const cache = env.CACHE;
   const cacheKey = `pros:${zipCode}:${categorySlug || query}`;
@@ -29,6 +35,15 @@ export async function POST(request: Request) {
     try {
       const cached = await cache.get(cacheKey, "json");
       if (cached) {
+        await appendApiLog(cache, {
+          ts: new Date().toISOString(),
+          endpoint: "search",
+          ms: 0,
+          status: "cache",
+          detail: "KV hit",
+          ip: clientIp,
+          zip: zipCode,
+        });
         return NextResponse.json(cached);
       }
     } catch {
@@ -36,36 +51,69 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- Layer 2: Require Turnstile for cache misses ---
-  const turnstileSecret = env.TURNSTILE_SECRET_KEY;
-  if (turnstileSecret) {
-    if (!turnstileToken) {
-      return NextResponse.json(
-        { error: "Verification required" },
-        { status: 403 },
-      );
+  // Cache-only probe: caller just wants to check the cache, no Turnstile needed
+  if (cacheOnly) {
+    let turnstileRequired = true;
+    if (cache && clientIp !== "unknown") {
+      try {
+        const used = await cache.get(`ratelimit:search:${clientIp}`);
+        turnstileRequired = !!used;
+      } catch {}
     }
-    const verifyRes = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          secret: turnstileSecret,
-          response: turnstileToken,
-        }),
-      },
-    );
-    const verification = await verifyRes.json();
-    if (!verification.success) {
-      return NextResponse.json(
-        { error: "Verification failed" },
-        { status: 403 },
+    return NextResponse.json({
+      cached: false,
+      businesses: [],
+      metadata: null,
+      turnstileRequired,
+    });
+  }
+
+  // --- Layer 2: IP rate limit — first search per IP per 30 min is free ---
+  let usedFreePass = false;
+  const rateLimitKey = `ratelimit:search:${clientIp}`;
+
+  if (cache && clientIp !== "unknown") {
+    try {
+      const used = await cache.get(rateLimitKey);
+      if (!used) {
+        usedFreePass = true;
+        console.log("[pro-search] IP free pass granted:", clientIp);
+      }
+    } catch {}
+  }
+
+  // --- Layer 3: Require Turnstile if no free pass ---
+  if (!usedFreePass) {
+    const turnstileSecret = env.TURNSTILE_SECRET_KEY;
+    if (turnstileSecret) {
+      if (!turnstileToken) {
+        return NextResponse.json(
+          { error: "Verification required" },
+          { status: 403 },
+        );
+      }
+      const verifyRes = await fetch(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            secret: turnstileSecret,
+            response: turnstileToken,
+          }),
+        },
       );
+      const verification = await verifyRes.json();
+      if (!verification.success) {
+        return NextResponse.json(
+          { error: "Verification failed" },
+          { status: 403 },
+        );
+      }
     }
   }
 
-  // --- Layer 3: Fetch from Thumbtack API ---
+  // --- Layer 4: Fetch from Thumbtack API ---
   const clientId = env.THUMBTACK_CLIENT_ID;
   const clientSecret = env.THUMBTACK_CLIENT_SECRET;
   const partnerId = env.THUMBTACK_PARTNER_ID || "cma-highintentlabs";
@@ -74,6 +122,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ businesses: [], metadata: null });
   }
 
+  const thumbtackStart = Date.now();
   try {
     const accessToken = await getAccessToken(clientId, clientSecret, cache);
     const result = await searchThumbtack(accessToken, {
@@ -82,10 +131,25 @@ export async function POST(request: Request) {
       partnerId,
       limit,
     });
+    const thumbtackMs = Date.now() - thumbtackStart;
+    console.log("[pro-search] Thumbtack responded in", thumbtackMs, "ms,", result.businesses.length, "results");
+    await appendApiLog(cache, {
+      ts: new Date().toISOString(),
+      endpoint: "search",
+      ms: thumbtackMs,
+      status: "ok",
+      detail: `${result.businesses.length} results`,
+      ip: clientIp,
+      zip: zipCode,
+    });
 
     // Write to KV cache (1 week TTL, fire-and-forget)
     if (cache && result.businesses.length > 0) {
       cache.put(cacheKey, JSON.stringify(result), { expirationTtl: 604800 }).catch(() => {});
+      // Record IP rate limit (30 min TTL, fire-and-forget)
+      if (usedFreePass) {
+        cache.put(rateLimitKey, "1", { expirationTtl: 1800 }).catch(() => {});
+      }
     }
 
     // Log search result to database (fire-and-forget)
@@ -133,9 +197,18 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, freePass: usedFreePass || undefined });
   } catch (err) {
     console.error("Thumbtack search failed:", err);
+    await appendApiLog(cache, {
+      ts: new Date().toISOString(),
+      endpoint: "search",
+      ms: Date.now() - thumbtackStart,
+      status: "error",
+      detail: String(err).substring(0, 100),
+      ip: clientIp,
+      zip: zipCode,
+    });
     return NextResponse.json({ businesses: [], metadata: null });
   }
 }
