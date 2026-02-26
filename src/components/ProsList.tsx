@@ -462,6 +462,11 @@ export function ProsList({
     // Broadcast searching phase immediately
     setScanStatus({ phase: "searching", serviceName });
     clarityEvent("pro_search");
+    fetch("/api/events/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "visit", categorySlug }),
+    }).catch(() => {});
 
     function waitForTurnstile(): Promise<string> {
       // Check ref for latest value (closure may be stale)
@@ -1386,6 +1391,11 @@ export function ProsList({
                   <button
                     onClick={() => {
                       clarityEvent("quote_flow_started");
+                      fetch("/api/events/track", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "conversion", categorySlug }),
+                      }).catch(() => {});
                       setIframeUrl(appendTrackingParams(pro.requestFlowUrl!));
                     }}
                     className="block w-full text-center text-sm font-semibold py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
