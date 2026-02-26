@@ -180,6 +180,7 @@ Respond with JSON:
           temperature: 0.3,
           maxOutputTokens: 3000,
           responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: controller.signal,

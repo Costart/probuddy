@@ -14,18 +14,21 @@ const LOG_KEY = "api:logs";
 const MAX_ENTRIES = 200;
 
 export async function appendApiLog(cache: any, entry: ApiLogEntry) {
-  if (!cache) return;
+  if (!cache) {
+    console.log("[api-log] No cache binding");
+    return;
+  }
   try {
     const raw = await cache.get(LOG_KEY);
     const entries: ApiLogEntry[] = raw ? JSON.parse(raw) : [];
     entries.push(entry);
-    // Keep only the last MAX_ENTRIES
     const trimmed = entries.slice(-MAX_ENTRIES);
     await cache.put(LOG_KEY, JSON.stringify(trimmed), {
       expirationTtl: 604800, // 1 week
     });
-  } catch {
-    // Fire-and-forget — don't break the API
+    console.log("[api-log] Written", trimmed.length, "entries");
+  } catch (err) {
+    console.error("[api-log] Error:", err);
   }
 }
 
