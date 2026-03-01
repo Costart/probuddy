@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { ClarityProvider } from "@/components/ClarityProvider";
+import { GtagProvider } from "@/components/GtagProvider";
 import { TrackingCapture } from "@/components/TrackingCapture";
 import "./globals.css";
 
@@ -23,10 +24,14 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://challenges.cloudflare.com" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
       </head>
       <body
         className={`${inter.variable} ${jakarta.variable} font-sans min-h-screen bg-surface antialiased`}
       >
+        {process.env.NEXT_PUBLIC_GOOGLE_ADS_ID && (
+          <GtagProvider id={process.env.NEXT_PUBLIC_GOOGLE_ADS_ID} />
+        )}
         {process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID && (
           <ClarityProvider
             projectId={process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID}

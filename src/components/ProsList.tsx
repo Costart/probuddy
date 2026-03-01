@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { useSharedPage } from "@/components/SharedPageContext";
 import { clarityEvent } from "@/lib/clarity";
+import { gtagConversion } from "@/lib/gtag";
 import { appendTrackingParams } from "@/lib/tracking";
 
 function slugify(text: string): string {
@@ -1391,6 +1392,7 @@ export function ProsList({
                   <button
                     onClick={() => {
                       clarityEvent("quote_flow_started");
+                      gtagConversion();
                       fetch("/api/events/track", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },

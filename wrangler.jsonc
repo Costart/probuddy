@@ -40,6 +40,7 @@
   // set via: echo "value" | npx wrangler secret put SECRET_NAME
   "vars": {
     "AUTH_URL": "https://probuddy.ai",
+    "NEXT_PUBLIC_GOOGLE_ADS_ID": "AW-17899660858",
     "NEXT_PUBLIC_CLARITY_PROJECT_ID": "vjscrko4st",
     "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAACfm-CiNXBHa4jmt",
   },
