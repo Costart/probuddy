@@ -138,7 +138,7 @@ export default function ConversionsPage() {
                 </div>
 
                 {/* Bars */}
-                <div className="relative flex items-end gap-1">
+                <div className="relative flex items-end gap-1" style={{ height: "160px" }}>
                   {hours.map((h) => {
                     const visitH = (h.visits / maxHourly) * 100;
                     const convH = (h.conversions / maxHourly) * 100;
@@ -146,7 +146,7 @@ export default function ConversionsPage() {
                     return (
                       <div
                         key={h.hour}
-                        className="flex-1 flex flex-col items-center relative group"
+                        className="flex-1 flex items-end gap-px relative group h-full"
                       >
                         {/* Tooltip */}
                         {!empty && (
@@ -154,32 +154,36 @@ export default function ConversionsPage() {
                             {formatHour(h.hour)}: {h.visits} searches, {h.conversions} quotes
                           </div>
                         )}
-                        <div className="w-full flex items-end gap-px" style={{ height: "160px" }}>
-                          {empty ? (
-                            <div className="flex-1 bg-outline-variant/15 rounded-t-sm" style={{ height: "4px" }} />
-                          ) : (
-                            <>
-                              <div
-                                className="flex-1 bg-primary/60 rounded-t-sm transition-all"
-                                style={{ height: `${Math.max(4, visitH)}%` }}
-                              />
-                              <div
-                                className="flex-1 bg-teal-500 rounded-t-sm transition-all"
-                                style={{ height: `${Math.max(convH > 0 ? 4 : 0, convH)}%` }}
-                              />
-                            </>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-on-surface-variant mt-1">
-                          {h.hour % 3 === 0 ? formatHour(h.hour) : ""}
-                        </span>
+                        {empty ? (
+                          <div className="flex-1 bg-outline-variant/15 rounded-t-sm" style={{ height: "4px" }} />
+                        ) : (
+                          <>
+                            <div
+                              className="flex-1 bg-primary/60 rounded-t-sm transition-all"
+                              style={{ height: `${Math.max(4, visitH)}%` }}
+                            />
+                            <div
+                              className="flex-1 bg-teal-500 rounded-t-sm transition-all"
+                              style={{ height: `${Math.max(convH > 0 ? 4 : 0, convH)}%` }}
+                            />
+                          </>
+                        )}
                       </div>
                     );
                   })}
                 </div>
 
                 {/* Baseline */}
-                <div className="border-t border-outline-variant/50" style={{ marginTop: "-1px" }} />
+                <div className="border-t border-outline-variant/50" />
+
+                {/* Hour labels — below baseline */}
+                <div className="flex gap-1 mt-1">
+                  {hours.map((h) => (
+                    <span key={h.hour} className="flex-1 text-center text-[10px] text-on-surface-variant">
+                      {h.hour % 3 === 0 ? formatHour(h.hour) : ""}
+                    </span>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
