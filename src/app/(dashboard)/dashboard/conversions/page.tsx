@@ -129,35 +129,57 @@ export default function ConversionsPage() {
                 </div>
               </div>
 
-              <div className="flex items-end gap-1">
-                {hours.map((h) => {
-                  const visitH = (h.visits / maxHourly) * 100;
-                  const convH = (h.conversions / maxHourly) * 100;
-                  return (
-                    <div
-                      key={h.hour}
-                      className="flex-1 flex flex-col items-center relative group"
-                    >
-                      {/* Tooltip */}
-                      <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        {formatHour(h.hour)}: {h.visits} searches, {h.conversions} quotes
+              <div className="relative">
+                {/* Horizontal gridlines */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none" style={{ height: "160px" }}>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="border-b border-outline-variant/30" />
+                  ))}
+                </div>
+
+                {/* Bars */}
+                <div className="relative flex items-end gap-1">
+                  {hours.map((h) => {
+                    const visitH = (h.visits / maxHourly) * 100;
+                    const convH = (h.conversions / maxHourly) * 100;
+                    const empty = h.visits === 0 && h.conversions === 0;
+                    return (
+                      <div
+                        key={h.hour}
+                        className="flex-1 flex flex-col items-center relative group"
+                      >
+                        {/* Tooltip */}
+                        {!empty && (
+                          <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                            {formatHour(h.hour)}: {h.visits} searches, {h.conversions} quotes
+                          </div>
+                        )}
+                        <div className="w-full flex items-end gap-px" style={{ height: "160px" }}>
+                          {empty ? (
+                            <div className="flex-1 bg-outline-variant/15 rounded-t-sm" style={{ height: "4px" }} />
+                          ) : (
+                            <>
+                              <div
+                                className="flex-1 bg-primary/60 rounded-t-sm transition-all"
+                                style={{ height: `${Math.max(4, visitH)}%` }}
+                              />
+                              <div
+                                className="flex-1 bg-teal-500 rounded-t-sm transition-all"
+                                style={{ height: `${Math.max(convH > 0 ? 4 : 0, convH)}%` }}
+                              />
+                            </>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-on-surface-variant mt-1">
+                          {h.hour % 3 === 0 ? formatHour(h.hour) : ""}
+                        </span>
                       </div>
-                      <div className="w-full flex items-end gap-px" style={{ height: "160px" }}>
-                        <div
-                          className="flex-1 bg-primary/60 rounded-t-sm transition-all"
-                          style={{ height: `${Math.max(visitH > 0 ? 4 : 0, visitH)}%` }}
-                        />
-                        <div
-                          className="flex-1 bg-teal-500 rounded-t-sm transition-all"
-                          style={{ height: `${Math.max(convH > 0 ? 4 : 0, convH)}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-on-surface-variant mt-1">
-                        {h.hour % 3 === 0 ? formatHour(h.hour) : ""}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+
+                {/* Baseline */}
+                <div className="border-t border-outline-variant/50" style={{ marginTop: "-1px" }} />
               </div>
             </CardContent>
           </Card>
