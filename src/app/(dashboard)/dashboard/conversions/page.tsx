@@ -129,20 +129,20 @@ export default function ConversionsPage() {
                 </div>
               </div>
 
-              <div className="flex items-end gap-[3px] h-32">
+              <div className="flex items-end gap-1">
                 {hours.map((h) => {
                   const visitH = (h.visits / maxHourly) * 100;
                   const convH = (h.conversions / maxHourly) * 100;
                   return (
                     <div
                       key={h.hour}
-                      className="flex-1 flex flex-col items-center gap-0 relative group"
+                      className="flex-1 flex flex-col items-center relative group"
                     >
                       {/* Tooltip */}
                       <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                         {formatHour(h.hour)}: {h.visits} searches, {h.conversions} quotes
                       </div>
-                      <div className="w-full flex items-end gap-[1px]" style={{ height: "128px" }}>
+                      <div className="w-full flex items-end gap-px" style={{ height: "160px" }}>
                         <div
                           className="flex-1 bg-primary/60 rounded-t-sm transition-all"
                           style={{ height: `${Math.max(visitH > 0 ? 4 : 0, visitH)}%` }}
